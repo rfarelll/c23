@@ -87,87 +87,120 @@ type RailSpec = {
   tendrils: readonly TendrilSpec[];
 };
 
-/** Left: climbs up from the floor of the screen. */
+/**
+ * Both vines hang from the top edge and reach the bottom edge (y = 0 → 1000 of the
+ * viewBox), so at full growth they span the whole viewport. Blossoms are placed by
+ * height; their bloom band is derived from where they sit (see BLOOM_BANDS).
+ */
 const LEFT: RailSpec = {
   main: {
-    start: [18, 1010],
+    start: [16, -10],
     segs: [
-      [[40, 930], [8, 870], [26, 800]],
-      [[44, 730], [12, 660], [30, 590]],
-      [[48, 520], [14, 450], [32, 380]],
-      [[50, 310], [16, 240], [34, 170]],
-      [[46, 120], [28, 80], [40, 30]],
-    ],
-  },
-  strand: {
-    start: [8, 1010],
-    segs: [
-      [[26, 950], [32, 880], [14, 820]],
-      [[0, 760], [30, 700], [20, 630]],
-      [[10, 570], [36, 520], [22, 460]],
-    ],
-  },
-  blossoms: [
-    { seg: 0, t: 1, size: "md", tilt: 8 },
-    { seg: 1, t: 0.5, size: "sm", tilt: -10, bud: true },
-    { seg: 1, t: 1, size: "lg", tilt: -6 },
-    { seg: 2, t: 1, size: "md", tilt: 12 },
-    { seg: 3, t: 0.55, size: "lg", tilt: -4 },
-    { seg: 4, t: 0.4, size: "md", tilt: 10 },
-    { seg: 4, t: 0.94, size: "sm", tilt: -14, bud: true },
-  ],
-  leaves: [
-    { seg: 0, t: 0.45, angle: -32 },
-    { seg: 1, t: 0.2, angle: -48 },
-    { seg: 2, t: 0.35, angle: -26 },
-    { seg: 2, t: 0.7, angle: -54 },
-    { seg: 3, t: 0.2, angle: -38 },
-    { seg: 4, t: 0.72, angle: -30 },
-  ],
-  tendrils: [
-    { seg: 0, t: 0.75 },
-    { seg: 2, t: 0.15, flip: true },
-    { seg: 3, t: 0.85 },
-  ],
-};
-
-/** Right: trails down from the top, mirrored onto the right edge. */
-const RIGHT: RailSpec = {
-  main: {
-    start: [20, -10],
-    segs: [
-      [[42, 60], [10, 130], [28, 210]],
-      [[46, 290], [14, 360], [32, 440]],
-      [[50, 520], [18, 590], [36, 670]],
-      [[52, 740], [22, 800], [36, 870]],
+      [[40, 60], [8, 110], [26, 170]],
+      [[44, 230], [10, 280], [30, 340]],
+      [[48, 400], [12, 450], [32, 510]],
+      [[50, 570], [14, 620], [34, 680]],
+      [[46, 740], [12, 790], [30, 850]],
+      [[46, 910], [20, 960], [36, 1010]],
     ],
   },
   strand: {
     start: [6, -10],
     segs: [
-      [[24, 50], [30, 110], [12, 170]],
-      [[0, 230], [28, 290], [18, 350]],
+      [[24, 50], [30, 130], [12, 230]],
+      [[0, 300], [30, 380], [18, 450]],
+      [[8, 520], [34, 580], [20, 680]],
+      [[10, 740], [30, 820], [16, 900]],
     ],
   },
   blossoms: [
-    { seg: 0, t: 0.55, size: "sm", tilt: 14, bud: true },
-    { seg: 0, t: 1, size: "lg", tilt: 6 },
-    { seg: 1, t: 1, size: "md", tilt: -8 },
-    { seg: 2, t: 0.6, size: "lg", tilt: 10 },
-    { seg: 3, t: 0.55, size: "md", tilt: -6 },
-    { seg: 3, t: 0.95, size: "sm", tilt: 12, bud: true },
+    // top
+    { seg: 0, t: 0.7, size: "md", tilt: 8 },
+    { seg: 0, t: 1, size: "lg", tilt: -6 },
+    // upper-mid
+    { seg: 1, t: 0.5, size: "sm", tilt: -10, bud: true },
+    { seg: 1, t: 1, size: "md", tilt: 12 },
+    { seg: 2, t: 0.45, size: "lg", tilt: -4 },
+    // lower-mid
+    { seg: 2, t: 1, size: "md", tilt: 10 },
+    { seg: 3, t: 0.6, size: "lg", tilt: -12 },
+    // bottom
+    { seg: 4, t: 0.45, size: "md", tilt: 6 },
+    { seg: 4, t: 1, size: "lg", tilt: -8 },
+    { seg: 5, t: 0.6, size: "sm", tilt: 14, bud: true },
   ],
   leaves: [
-    { seg: 0, t: 0.3, angle: 34 },
-    { seg: 1, t: 0.4, angle: 46 },
-    { seg: 1, t: 0.75, angle: 24 },
-    { seg: 2, t: 0.25, angle: 40 },
-    { seg: 3, t: 0.25, angle: 30 },
+    { seg: 0, t: 0.4, angle: 36 },
+    { seg: 1, t: 0.25, angle: 48 },
+    { seg: 1, t: 0.75, angle: 28 },
+    { seg: 2, t: 0.7, angle: 42 },
+    { seg: 3, t: 0.25, angle: 34 },
+    { seg: 3, t: 0.85, angle: 50 },
+    { seg: 4, t: 0.7, angle: 30 },
+    { seg: 5, t: 0.35, angle: 44 },
+  ],
+  tendrils: [
+    { seg: 0, t: 0.85 },
+    { seg: 1, t: 0.15, flip: true },
+    { seg: 2, t: 0.8 },
+    { seg: 3, t: 0.15, flip: true },
+    { seg: 4, t: 0.85 },
+  ],
+};
+
+const RIGHT: RailSpec = {
+  main: {
+    start: [22, -10],
+    segs: [
+      [[44, 50], [8, 130], [24, 190]],
+      [[42, 250], [10, 310], [30, 370]],
+      [[50, 430], [14, 490], [34, 550]],
+      [[52, 610], [16, 670], [32, 730]],
+      [[44, 780], [12, 830], [28, 890]],
+      [[40, 940], [22, 980], [38, 1010]],
+    ],
+  },
+  strand: {
+    start: [8, -10],
+    segs: [
+      [[26, 60], [28, 150], [10, 250]],
+      [[0, 320], [32, 400], [20, 490]],
+      [[8, 560], [32, 640], [18, 730]],
+      [[6, 790], [30, 860], [14, 920]],
+    ],
+  },
+  blossoms: [
+    // top
+    { seg: 0, t: 0.55, size: "sm", tilt: 14, bud: true },
+    { seg: 0, t: 1, size: "lg", tilt: 6 },
+    // upper-mid
+    { seg: 1, t: 0.5, size: "md", tilt: -8 },
+    { seg: 1, t: 1, size: "lg", tilt: 10 },
+    // lower-mid
+    { seg: 2, t: 1, size: "md", tilt: -6 },
+    { seg: 3, t: 0.5, size: "lg", tilt: 12 },
+    // bottom
+    { seg: 3, t: 1, size: "md", tilt: -10 },
+    { seg: 4, t: 0.55, size: "lg", tilt: 8 },
+    { seg: 4, t: 1, size: "md", tilt: -12 },
+    { seg: 5, t: 0.55, size: "sm", tilt: 12, bud: true },
+  ],
+  leaves: [
+    { seg: 0, t: 0.3, angle: 32 },
+    { seg: 1, t: 0.2, angle: 46 },
+    { seg: 1, t: 0.7, angle: 26 },
+    { seg: 2, t: 0.35, angle: 40 },
+    { seg: 3, t: 0.2, angle: 30 },
+    { seg: 3, t: 0.8, angle: 48 },
+    { seg: 4, t: 0.25, angle: 34 },
+    { seg: 5, t: 0.3, angle: 42 },
   ],
   tendrils: [
     { seg: 0, t: 0.25, flip: true },
-    { seg: 1, t: 0.6 },
-    { seg: 2, t: 0.9, flip: true },
+    { seg: 1, t: 0.85 },
+    { seg: 2, t: 0.2, flip: true },
+    { seg: 3, t: 0.9 },
+    { seg: 4, t: 0.2, flip: true },
   ],
 };
 
@@ -179,15 +212,31 @@ type RailGeometry = {
 const LEFT_GEOMETRY: RailGeometry = { main: measureVine(LEFT.main), strand: measureVine(LEFT.strand) };
 const RIGHT_GEOMETRY: RailGeometry = { main: measureVine(RIGHT.main), strand: measureVine(RIGHT.strand) };
 
-/** Fraction of the page by which the vines are fully grown — roughly, arriving at the garden. */
-const FULL_BLOOM_AT = 0.4;
-/** How much vine is already showing before she scrolls at all. */
-const RESTING_GROWTH = 0.16;
+/** Vine already showing at scroll 0, so the tips peek in at the top. */
+const HEAD_START = 0.08;
+
+/**
+ * Bloom bands, in growth (vine-length) terms: top, upper-mid, lower-mid, bottom.
+ * A blossom opens inside the band its height falls in, but never before the
+ * growing vine tip has actually reached it.
+ */
+const BLOOM_BANDS: readonly (readonly [number, number])[] = [
+  [0.05, 0.25],
+  [0.25, 0.5],
+  [0.5, 0.75],
+  [0.72, 0.98],
+];
+
+function bandFor(f: number): readonly [number, number] {
+  let band = BLOOM_BANDS[0];
+  for (const candidate of BLOOM_BANDS) if (f >= candidate[0]) band = candidate;
+  return band;
+}
 
 const BLOSSOM_SIZE = {
-  lg: "size-12 sm:size-16 lg:size-24",
-  md: "size-10 sm:size-14 lg:size-20",
-  sm: "size-8 sm:size-11 lg:size-16",
+  lg: "size-10 sm:size-14 md:size-[4.5rem]",
+  md: "size-9 sm:size-12 md:size-16",
+  sm: "size-7 sm:size-10 md:size-12",
 } as const;
 
 /* ── Shared gradients (one copy for every bloom) ─────────────── */
@@ -229,9 +278,12 @@ function Blossom({
   growth: MotionValue<number>;
 }) {
   const { f } = anchor;
-  const openEnd = Math.min(f + 0.09, 1);
-  const open = useTransform(growth, [f - 0.02, openEnd], [0, 1]);
-  const appear = useTransform(growth, [f - 0.07, f - 0.02], [0, 1]);
+  const [bandStart, bandEnd] = bandFor(f);
+  // Wait for the vine tip, then unfurl across the rest of the band (at least a short beat).
+  const openStart = Math.max(bandStart, f);
+  const openEnd = Math.min(Math.max(bandEnd, openStart + 0.06), 1);
+  const open = useTransform(growth, [openStart, openEnd], [0, 1]);
+  const appear = useTransform(growth, [f - 0.04, f], [0, 1]);
   const scale = useTransform(open, [0, 1], [0.38, 1]);
   const rotate = useTransform(open, [0, 1], [spec.tilt - 26, spec.tilt]);
   const petalScale = useTransform(open, [0.12, 1], [0.3, 1]);
@@ -324,7 +376,7 @@ function Leaf({ anchor, angle, growth }: { anchor: Anchor; angle: number; growth
   const scale = useTransform(growth, [f - 0.01, f + 0.05], [0, 1]);
   return (
     <motion.div
-      className="absolute h-3 w-7 -translate-y-1/2 sm:h-4 sm:w-10 lg:h-6 lg:w-14"
+      className="absolute h-2.5 w-6 -translate-y-1/2 sm:h-3.5 sm:w-9 md:h-5 md:w-12"
       style={{ left: `${anchor.x}%`, top: `${anchor.y / 10}%`, originX: 0, originY: 0.5, rotate: angle, scale }}
     >
       <svg viewBox="0 0 60 24" className="size-full overflow-visible">
@@ -364,11 +416,11 @@ function VineRail({
 }) {
   const { main, strand } = geometry;
   // The thinner strand trails the main stem a little.
-  const strandLength = useTransform(growth, [0.05, 0.75], [0, 1]);
+  const strandLength = useTransform(growth, [HEAD_START, 1], [0, 1]);
 
   return (
     <div
-      className={`absolute inset-y-0 w-11 sm:w-16 lg:w-24 ${
+      className={`absolute inset-y-0 w-14 sm:w-20 md:w-24 ${
         side === "left" ? "left-0" : "right-0 -scale-x-100"
       }`}
     >
@@ -414,7 +466,8 @@ export default function ScrollOrchids({ revealed = true }: Readonly<ScrollOrchid
   const reduce = usePrefersReducedMotion();
   const { scrollYProgress } = useScroll();
 
-  const target = useTransform(scrollYProgress, [0, FULL_BLOOM_AT], [RESTING_GROWTH, 1]);
+  // Window scroll, no target: 0 at the top of the document, 1 at its very bottom.
+  const target = useTransform(scrollYProgress, [0, 1], [HEAD_START, 1]);
   const smooth = useSpring(target, { stiffness: 70, damping: 22, mass: 0.7 });
   const intro = useMotionValue(0);
 
@@ -429,12 +482,12 @@ export default function ScrollOrchids({ revealed = true }: Readonly<ScrollOrchid
     return () => controls.stop();
   }, [revealed, reduce, intro]);
 
-  const growth = useTransform<number, number>([intro, smooth], ([i, g]) => i * g);
+  const growth = useTransform<number, number>([intro, reduce ? target : smooth], ([i, g]) => i * g);
 
   return (
     <motion.div
       aria-hidden
-      className="pointer-events-none fixed inset-0 z-[5] print:hidden"
+      className="pointer-events-none fixed inset-0 z-30 print:hidden"
       initial={false}
       animate={{ opacity: revealed ? 1 : 0 }}
       transition={{ duration: 1.2, ease: EASE_DUSK }}
