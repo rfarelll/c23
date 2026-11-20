@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 /* ───────────────────────────────────────────────────────────────
    Chaca 23 — design tokens
@@ -29,6 +29,8 @@
   --animate-drift-a: drift-a 34s ease-in-out infinite;
   --animate-drift-b: drift-b 46s ease-in-out infinite;
   --animate-ember: ember 7s ease-in-out infinite;
+  --animate-flicker: flicker 5.2s ease-in-out infinite;
+  --animate-twinkle: twinkle 4.8s ease-in-out infinite;
 }
 
 @keyframes drift-a {
@@ -61,6 +63,49 @@
   }
 }
 
+/* Candlelight behind glass: irregular, never strobing. Ends lit for reduced motion. */
+@keyframes flicker {
+  0% {
+    opacity: 0.88;
+  }
+  9% {
+    opacity: 0.74;
+  }
+  13% {
+    opacity: 0.95;
+  }
+  31% {
+    opacity: 0.82;
+  }
+  47% {
+    opacity: 1;
+  }
+  58% {
+    opacity: 0.78;
+  }
+  64% {
+    opacity: 0.92;
+  }
+  83% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+
 body {
   background: var(--color-linen);
   color: var(--color-ink);
@@ -76,6 +121,12 @@ body {
 ::selection {
   background: rgba(217, 160, 91, 0.28);
   color: var(--color-velvet-plum);
+}
+
+/* Linen paper tooth — a tiled, pre-rasterised noise so it never repaints. */
+.paper-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.14 0 0 0 0 0.21 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
 }
 
 /* Horizontal memory rail on small screens — scrolls, but quietly. */
