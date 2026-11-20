@@ -693,7 +693,7 @@ function Garden() {
   const removeFalling = (key: number) => setFalling((f) => f.filter((x) => x.key !== key));
   const removeBurst = (key: number) => setBursts((b) => b.filter((x) => x.key !== key));
 
-  let hint = "Tap any petal to pluck it — or let the button do it for you.";
+  let hint = "Bebe can tap the petal or tap the button, either way works !";
   if (rewinding) hint = "Winding the evening back…";
   else if (done) hint = "All twenty-three, gathered. The letter is yours to keep.";
   else if (count === TOTAL_PETALS - 1) hint = "One left. Take your time.";
@@ -721,7 +721,7 @@ function Garden() {
         className="relative z-10 max-w-xl text-center"
       >
         <motion.p variants={rise} className="font-mono text-[0.66rem] tracking-[0.34em] text-dusk-amber uppercase">
-          The garden of 23 petals
+          Petals Picking by You
         </motion.p>
         <motion.h2
           id="garden-heading"
@@ -729,11 +729,10 @@ function Garden() {
           className="mt-4 font-serif text-[clamp(2.1rem,6vw,3.6rem)] leading-[1.02] text-balance text-velvet-plum"
           style={{ fontVariationSettings: '"SOFT" 100, "WONK" 1, "opsz" 144' }}
         >
-          One petal for <em className="italic">every year.</em>
+          23 Petals <em className="italic">Hiding Something</em> Just for You
         </motion.h2>
         <motion.p variants={rise} className="mx-auto mt-4 max-w-md text-[0.98rem] leading-relaxed text-ink/75">
-          Twenty-three of them, light as lavender. Pluck them one by one — the last
-          one is holding something for you.
+          Pluck each one bebeee and you get something at the end !
         </motion.p>
       </motion.header>
 

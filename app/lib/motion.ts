@@ -1,5 +1,55 @@
-import { useReducedMotion } from "framer-motion";
+import { animate, useReducedMotion } from "framer-motion";
 import type { Transition, Variants } from "framer-motion";
+
+/** Ease for page glides: quick to leave, long soft landing. */
+export const EASE_GLIDE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const INTERRUPT_EVENTS = ["wheel", "touchstart", "keydown"] as const;
+let stopActiveGlide: (() => void) | null = null;
+
+/**
+ * Glide the window to `targetY` with a Framer Motion tween. Any wheel, touch or key input
+ * mid-glide hands control straight back to the reader. Starting a new glide cancels the
+ * previous one. Reduced motion jumps instantly. Resolves when the glide ends or is interrupted.
+ */
+export function smoothScrollTo(targetY: number, duration = 1.15): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  stopActiveGlide?.();
+
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  const to = Math.max(0, Math.min(targetY, maxY));
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (reduced || Math.abs(window.scrollY - to) < 2) {
+    window.scrollTo(0, to);
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    const controls = animate(window.scrollY, to, {
+      duration,
+      ease: EASE_GLIDE,
+      onUpdate: (value) => window.scrollTo(0, value),
+      onComplete: () => finish(),
+    });
+
+    const interrupt = () => {
+      controls.stop();
+      finish();
+    };
+
+    function finish() {
+      for (const type of INTERRUPT_EVENTS) window.removeEventListener(type, interrupt);
+      if (stopActiveGlide === interrupt) stopActiveGlide = null;
+      resolve();
+    }
+
+    for (const type of INTERRUPT_EVENTS) {
+      window.addEventListener(type, interrupt, { once: true, passive: true });
+    }
+    stopActiveGlide = interrupt;
+  });
+}
 
 /** Long, unhurried ease — everything arrives like dusk, never like a popup. */
 export const EASE_DUSK: [number, number, number, number] = [0.16, 1, 0.3, 1];

@@ -33,7 +33,7 @@ import {
 
 const PHOTO_COUNT = 12;
 const AUTO_MS = 6200;
-const SIZES = "(min-width: 1024px) 480px, (min-width: 640px) 70vw, 76vw";
+const SIZES = "(min-width: 1024px) 780px, (min-width: 640px) 80vw, 72vw";
 
 const PHOTOS = Array.from({ length: PHOTO_COUNT }, (_, i) => ({
   src: `/chaca_photos/chaca${i + 1}.jpg`,
@@ -236,8 +236,9 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
   const py = useMotionValue(0);
   const sx = useSpring(px, SPRING_TILT);
   const sy = useSpring(py, SPRING_TILT);
-  const rotateY = useTransform(sx, [-0.5, 0.5], [-9, 9]);
-  const rotateX = useTransform(sy, [-0.5, 0.5], [7, -7]);
+  // Gentler angles than a portrait frame: a wide pane swings its edges much further.
+  const rotateY = useTransform(sx, [-0.5, 0.5], [-6, 6]);
+  const rotateX = useTransform(sy, [-0.5, 0.5], [5, -5]);
   const photoX = useTransform(sx, [-0.5, 0.5], [9, -9]);
   const photoY = useTransform(sy, [-0.5, 0.5], [7, -7]);
   const glareX = useTransform(sx, [-0.5, 0.5], [18, 82]);
@@ -284,14 +285,16 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
       variants={stagger(0.14, 0.35)}
       initial="hidden"
       animate={revealed ? "shown" : "hidden"}
-      className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-x-8 gap-y-10 px-12 pt-28 pb-16 sm:px-20 sm:pt-32 lg:grid-cols-12 lg:px-28 lg:pt-36 xl:gap-x-10"
+      // Side padding matches the orchid rails (w-14 / sm:w-20 / md:w-24) so the vines frame,
+      // never cover, the gallery. The deep bottom padding leaves the ridges and chalet in view.
+      className="mx-auto flex w-full max-w-5xl flex-col items-center px-14 pt-28 pb-[clamp(9rem,24vw,21rem)] sm:px-20 sm:pt-32 md:px-24 lg:pt-36"
     >
       {/* ── Editorial headline ─────────────────────────────────── */}
-      <header className="text-center lg:col-span-5 lg:col-start-1 lg:row-start-1 lg:self-end lg:text-left">
+      <header className="text-center">
         <motion.h1
           id="chalet-heading"
           variants={rise}
-          className="font-serif text-[clamp(2.5rem,8.5vw,5.4rem)] lg:text-[clamp(3rem,4vw,4.6rem)] leading-[0.92] tracking-[-0.015em] text-orchid-white [text-shadow:0_2px_24px_color-mix(in_oklab,var(--color-twilight-indigo)_70%,transparent)]"
+          className="font-serif text-[clamp(2.4rem,8vw,4.8rem)] leading-[0.92] tracking-[-0.015em] text-orchid-white [text-shadow:0_2px_24px_color-mix(in_oklab,var(--color-twilight-indigo)_70%,transparent)]"
           style={{ fontVariationSettings: '"SOFT" 100, "WONK" 0, "opsz" 144' }}
         >
           <span className="block font-light italic" style={{ fontVariationSettings: '"SOFT" 100, "WONK" 1, "opsz" 144' }}>
@@ -315,7 +318,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
           hidden: { opacity: 0, y: 40, scale: 0.96 },
           shown: { opacity: 1, y: 0, scale: 1, transition: SPRING_SOFT },
         }}
-        className="mx-auto w-full max-w-[540px] lg:col-span-7 lg:col-start-6 lg:row-span-2 lg:row-start-1"
+        className="mx-auto mt-10 w-full max-w-[820px] sm:mt-12"
       >
         <section
           ref={regionRef}
@@ -345,7 +348,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
                   <motion.div
                     onPanEnd={onPanEnd}
                     style={{ touchAction: "pan-y" }}
-                    className="relative aspect-[4/5] overflow-hidden rounded-sm bg-linen ring-1 ring-dusk-amber/60 ring-offset-[3px] ring-offset-linen-deep"
+                    className="relative aspect-[16/9] overflow-hidden rounded-sm bg-linen ring-1 ring-dusk-amber/60 ring-offset-[3px] ring-offset-linen-deep"
                   >
                     <div
                       role="group"
@@ -506,7 +509,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
       {/* ── Dedication ─────────────────────────────────────────── */}
       <motion.article
         variants={rise}
-        className="mx-auto w-full max-w-xl rounded-[1.75rem] border border-orchid-white/50 bg-linen/80 px-6 py-7 text-center shadow-xl shadow-twilight-indigo/25 backdrop-blur-xl sm:px-9 lg:col-span-5 lg:col-start-1 lg:row-start-2 lg:mx-0 lg:max-w-none lg:self-start lg:text-left"
+        className="mx-auto mt-8 w-full max-w-[740px] rounded-[1.75rem] border border-orchid-white/50 bg-linen/80 px-6 py-7 text-center shadow-xl shadow-twilight-indigo/25 backdrop-blur-xl sm:px-10 sm:py-8"
       >
         <p className="font-mono text-[0.62rem] tracking-[0.3em] text-dusk-amber uppercase">
           For Marsha Syarina Putri

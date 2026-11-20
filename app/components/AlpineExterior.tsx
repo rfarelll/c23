@@ -3,7 +3,7 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useRef, type CSSProperties, type ReactNode } from "react";
-import { usePrefersReducedMotion } from "../lib/motion";
+import { SPRING_TACTILE, smoothScrollTo, usePrefersReducedMotion } from "../lib/motion";
 
 /* ───────────────────────────────────────────────────────────────
    Deterministic scenery. Everything random is seeded at module
@@ -349,6 +349,18 @@ export default function AlpineExterior({ children }: Readonly<AlpineExteriorProp
 
   const parallax = (y: typeof farY) => (reduce ? undefined : { y });
 
+  const goToGarden = async () => {
+    const garden = document.getElementById("garden");
+    if (!garden) return;
+    await smoothScrollTo(garden.getBoundingClientRect().top + window.scrollY);
+    // Keyboard and screen-reader users land in the garden too, without a second jump.
+    const heading = document.getElementById("garden-heading");
+    if (heading && Math.abs(garden.getBoundingClientRect().top) < 4) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -539,19 +551,25 @@ export default function AlpineExterior({ children }: Readonly<AlpineExteriorProp
       <div aria-hidden className="paper-grain pointer-events-none absolute inset-0 opacity-25 mix-blend-multiply" />
 
       {/* Scroll cue */}
-      <a
-        href="#garden"
-        className="group absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit flex-col items-center gap-1 rounded-full px-4 py-2 font-mono text-[0.65rem] tracking-[0.28em] text-ink/60 uppercase transition-colors hover:text-velvet-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dusk-amber"
+      <motion.button
+        type="button"
+        onClick={goToGarden}
+        aria-controls="garden"
+        whileHover={reduce ? undefined : { y: -2, scale: 1.04 }}
+        whileTap={reduce ? undefined : { scale: 0.95 }}
+        transition={SPRING_TACTILE}
+        className="group absolute inset-x-0 bottom-5 z-10 mx-auto flex w-fit cursor-pointer flex-col items-center gap-1 rounded-full px-4 py-2 font-mono text-[0.65rem] tracking-[0.28em] text-ink/60 uppercase transition-colors hover:text-velvet-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dusk-amber"
       >
         Down to the garden
+        {/* Breathing float: sinks, fades a touch, and rises again. */}
         <motion.span
           aria-hidden
-          animate={reduce ? undefined : { y: [0, 4, 0] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+          animate={reduce ? undefined : { y: [0, 5, 0], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
         >
           <ChevronDown className="size-4" />
         </motion.span>
-      </a>
+      </motion.button>
     </section>
   );
 }
