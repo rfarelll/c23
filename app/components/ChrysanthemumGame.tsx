@@ -32,6 +32,7 @@ import {
 import { Download, Flower2, LoaderCircle, MailOpen, RotateCcw, X } from "lucide-react";
 import {
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   useSyncExternalStore,
@@ -47,6 +48,7 @@ import {
   stagger,
   usePrefersReducedMotion,
 } from "../lib/motion";
+import { Anemone, LilyOfTheValley } from "./BotanicalAccents";
 
 const PDF_FILENAME = "Happy-23rd-Birthday-Marchi.pdf";
 const TOTAL_PETALS = 23;
@@ -532,7 +534,7 @@ function LetterModal({
 
 const noopSubscribe = () => () => {};
 
-function Garden() {
+function Garden({ resetKey }: Readonly<{ resetKey: number }>) {
   const reduce = usePrefersReducedMotion();
   const isClient = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
@@ -569,10 +571,10 @@ function Garden() {
     [],
   );
 
-  // Rapid countdown 23 → 0 across the flight.
+  // Rapid countdown (23 → 0, or from however many were plucked) across the flight.
   useEffect(() => {
     if (!rewind) return;
-    let n = TOTAL_PETALS;
+    let n = Object.keys(rewind).length;
     const id = window.setInterval(() => {
       n -= 1;
       setTick(Math.max(n, 0));
@@ -628,9 +630,14 @@ function Garden() {
     finaleTimer.current = window.setTimeout(() => setLetter(from), reduce ? 0 : 380);
   };
 
-  const startRewind = () => {
-    if (!done || rewinding) return;
+  /** Fly every plucked petal home and fold the letter away. `refocus` keeps keyboard users in the garden. */
+  const runRewind = (refocus: boolean) => {
+    if (rewinding) return;
     window.clearTimeout(finaleTimer.current);
+    setLetter(null);
+    setFalling([]);
+    setBursts([]);
+    if (plucked.size === 0) return;
 
     // Last plucked flies home first.
     const order = [...plucked].reverse();
@@ -646,13 +653,11 @@ function Garden() {
       };
     });
 
-    setFalling([]);
-    setBursts([]);
-    setTick(TOTAL_PETALS);
+    setTick(order.length);
     setRewind(flights);
     setPlucked(new Set());
     // The Rewind pill unmounts with this render; keep focus on the button that replaces it.
-    window.requestAnimationFrame(() => pluckRef.current?.focus({ preventScroll: true }));
+    if (refocus) window.requestAnimationFrame(() => pluckRef.current?.focus({ preventScroll: true }));
 
     rewindTimer.current = window.setTimeout(
       () => {
@@ -668,6 +673,20 @@ function Garden() {
       reduce ? 0 : REWIND_TOTAL_MS,
     );
   };
+
+  const startRewind = () => {
+    if (done) runRewind(true);
+  };
+
+  // The story-wide "Rewind the Whole Story" bumps resetKey: the same fly-back plays for
+  // however many petals are off, the letter folds away, and focus stays where she is.
+  const handledReset = useRef(resetKey);
+  const onStoryRewind = useEffectEvent(() => runRewind(false));
+  useEffect(() => {
+    if (handledReset.current === resetKey) return;
+    handledReset.current = resetKey;
+    onStoryRewind();
+  }, [resetKey]);
 
   const pluckNext = () => {
     if (rewinding) return;
@@ -711,6 +730,12 @@ function Garden() {
         <div className="absolute top-[18%] left-1/2 h-[42rem] w-[min(60rem,150vw)] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--color-petal-lilac)_55%,transparent),transparent)] blur-2xl" />
         <div className="absolute bottom-0 left-1/2 h-72 w-[min(48rem,120vw)] -translate-x-1/2 translate-y-1/3 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--color-ember-gold)_30%,transparent),transparent)] blur-2xl" />
         <div className="paper-grain absolute inset-0 opacity-20 mix-blend-multiply" />
+
+        {/* Garden corners: anemones and lily-of-the-valley, kept soft so the chrysanthemum leads */}
+        <LilyOfTheValley className="absolute top-16 left-[max(6.5rem,9%)] hidden w-20 opacity-40 md:block" delay={2.6} />
+        <Anemone flip className="absolute top-20 right-[max(6.5rem,9%)] hidden w-16 opacity-40 md:block" delay={1.1} />
+        <Anemone className="absolute bottom-6 left-[max(3.75rem,7%)] w-11 opacity-50 sm:bottom-10 sm:w-16 md:left-[max(6.5rem,9%)] md:w-20" delay={0.3} />
+        <LilyOfTheValley flip className="absolute right-[max(3.75rem,7%)] bottom-5 w-12 opacity-50 sm:bottom-8 sm:w-20 md:right-[max(6.5rem,9%)] md:w-24" delay={1.8} />
       </div>
 
       <motion.header
@@ -979,12 +1004,10 @@ function Garden() {
 }
 
 type ChrysanthemumGameProps = {
-  /** Increment to restore all 23 petals and close the letter (the Rewind button). */
+  /** Increment to fly every plucked petal home and close the letter (the story-wide Rewind). */
   resetKey?: number;
 };
 
 export default function ChrysanthemumGame({ resetKey = 0 }: Readonly<ChrysanthemumGameProps>) {
-  // A new key remounts the garden into the same clean state a finished rewind leaves:
-  // every petal back and pluckable, letter closed, particles and timers cleared.
-  return <Garden key={resetKey} />;
+  return <Garden resetKey={resetKey} />;
 }

@@ -31,6 +31,16 @@
   --animate-ember: ember 7s ease-in-out infinite;
   --animate-flicker: flicker 5.2s ease-in-out infinite;
   --animate-twinkle: twinkle 4.8s ease-in-out infinite;
+
+  /* Living room: hearth, cats, dust and the CRT */
+  --animate-flame: flame 1.8s ease-in-out infinite;
+  --animate-breathe: breathe 4.4s ease-in-out infinite;
+  --animate-tail: tail-sway 6.5s ease-in-out infinite;
+  --animate-ear: ear-twitch 8.5s ease-in-out infinite;
+  --animate-peek: peek 12s ease-in-out infinite;
+  --animate-peek-shut: peek-shut 12s ease-in-out infinite;
+  --animate-mote: mote 16s ease-in-out infinite;
+  --animate-snow: crt-snow 0.25s steps(1, end) both;
 }
 
 @keyframes drift-a {
@@ -106,6 +116,132 @@
   }
 }
 
+/* A flame licking upward: taller, thinner, leaning — never strobing. */
+@keyframes flame {
+  0%,
+  100% {
+    transform: scale(1, 1) skewX(0deg);
+  }
+  22% {
+    transform: scale(0.95, 1.08) skewX(-3deg);
+  }
+  48% {
+    transform: scale(1.04, 0.93) skewX(1.5deg);
+  }
+  74% {
+    transform: scale(0.97, 1.05) skewX(2.5deg);
+  }
+}
+
+/* Sleeping chests rise slowly and settle. Rest pose last, for reduced motion. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  42% {
+    transform: scale(1.012, 1.04);
+  }
+}
+
+@keyframes tail-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(var(--sway, 7deg));
+  }
+}
+
+/* Long stillness, then a quick double flick. */
+@keyframes ear-twitch {
+  0%,
+  84%,
+  100% {
+    transform: rotate(0deg);
+  }
+  86% {
+    transform: rotate(-14deg);
+  }
+  88% {
+    transform: rotate(3deg);
+  }
+  90% {
+    transform: rotate(-9deg);
+  }
+  93% {
+    transform: rotate(0deg);
+  }
+}
+
+/* One eye opens a sliver, checks the room, and closes again. */
+@keyframes peek {
+  0%,
+  70%,
+  86%,
+  100% {
+    opacity: 0;
+  }
+  73%,
+  83% {
+    opacity: 1;
+  }
+}
+
+@keyframes peek-shut {
+  0%,
+  70%,
+  86%,
+  100% {
+    opacity: 1;
+  }
+  73%,
+  83% {
+    opacity: 0;
+  }
+}
+
+@keyframes mote {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(var(--mx, 12px), var(--my, -30px), 0);
+    opacity: 0.4;
+  }
+  75% {
+    opacity: 0.8;
+  }
+}
+
+/* Static snow: the noise tile jumps around for a quarter of a second. */
+@keyframes crt-snow {
+  0% {
+    background-position: 0 0;
+  }
+  20% {
+    background-position: -41px 23px;
+  }
+  40% {
+    background-position: 57px -36px;
+  }
+  60% {
+    background-position: -23px 64px;
+  }
+  80% {
+    background-position: 31px -15px;
+  }
+  100% {
+    background-position: -9px 41px;
+  }
+}
+
 body {
   background: var(--color-linen);
   color: var(--color-ink);
@@ -127,6 +263,13 @@ body {
 .paper-grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.14 0 0 0 0 0.21 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px 180px;
+}
+
+/* CRT snow — orchid-white speckle (rgb mirrors --color-orchid-white) over twilight glass. */
+.crt-snow {
+  background-color: var(--color-twilight-indigo);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 0.99 0 0 0 0 0.98 2.6 0 0 0 -1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
 }
 
 /* Horizontal memory rail on small screens — scrolls, but quietly. */

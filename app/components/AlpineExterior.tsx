@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { useRef, type CSSProperties, type ReactNode } from "react";
 import { SPRING_TACTILE, smoothScrollTo, usePrefersReducedMotion } from "../lib/motion";
+import { LilyOfTheValley } from "./BotanicalAccents";
 
 /* ───────────────────────────────────────────────────────────────
    Deterministic scenery. Everything random is seeded at module
@@ -542,6 +543,17 @@ export default function AlpineExterior({ children }: Readonly<AlpineExteriorProp
             />
           ))}
         </svg>
+
+        {/* Lily-of-the-valley tucked into the foothills, clear of the chalet and the edge vines */}
+        <LilyOfTheValley
+          className="absolute bottom-[26%] left-[max(4.25rem,9%)] w-[clamp(3.25rem,8vw,5.75rem)] opacity-90"
+          delay={0.5}
+        />
+        <LilyOfTheValley
+          flip
+          className="absolute right-[max(6.5rem,10%)] bottom-[22%] hidden w-[clamp(3rem,6vw,4.75rem)] opacity-80 sm:block"
+          delay={2.3}
+        />
 
         {/* Melt into the linen of the garden below */}
         <div className="absolute inset-x-0 bottom-0 h-[38%] bg-linear-to-b from-transparent to-linen" />

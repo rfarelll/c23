@@ -30,6 +30,7 @@ import {
   stagger,
   usePrefersReducedMotion,
 } from "../lib/motion";
+import { LilyOfTheValley, Wisteria } from "./BotanicalAccents";
 
 const PHOTO_COUNT = 12;
 const AUTO_MS = 6200;
@@ -429,6 +430,10 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
                   </motion.div>
                 </div>
               </TimberFrame>
+
+              {/* Wisteria draping from the top joints, over the beams rather than the photo */}
+              <Wisteria className="absolute -top-3 -left-5 z-10 w-14 sm:-left-14 sm:w-[clamp(4.5rem,10vw,6.5rem)]" delay={0.4} />
+              <Wisteria flip className="absolute -top-2 -right-4 z-10 w-12 sm:-right-12 sm:w-[clamp(4rem,8.5vw,5.5rem)]" delay={2.2} />
             </motion.div>
           </div>
 
@@ -509,7 +514,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
       {/* ── Dedication ─────────────────────────────────────────── */}
       <motion.article
         variants={rise}
-        className="mx-auto mt-8 w-full max-w-[740px] rounded-[1.75rem] border border-orchid-white/50 bg-linen/80 px-6 py-7 text-center shadow-xl shadow-twilight-indigo/25 backdrop-blur-xl sm:px-10 sm:py-8"
+        className="relative mx-auto mt-8 w-full max-w-[740px] rounded-[1.75rem] border border-orchid-white/50 bg-linen/80 px-6 py-7 text-center shadow-xl shadow-twilight-indigo/25 backdrop-blur-xl sm:px-10 sm:py-8"
       >
         <p className="font-mono text-[0.62rem] tracking-[0.3em] text-dusk-amber uppercase">
           For Marsha Syarina Putri
@@ -531,6 +536,8 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
         >
           — With so much love, Ayeeel !
         </p>
+        <LilyOfTheValley className="absolute -bottom-4 -left-4 w-12 sm:-left-8 sm:w-20" delay={0.8} />
+        <LilyOfTheValley flip className="absolute -right-4 -bottom-3 w-10 sm:-right-7 sm:w-16" delay={2.6} />
       </motion.article>
     </motion.div>
   );
