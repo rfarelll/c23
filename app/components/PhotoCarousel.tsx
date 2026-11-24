@@ -34,7 +34,7 @@ import { LilyOfTheValley, Wisteria } from "./BotanicalAccents";
 
 const PHOTO_COUNT = 12;
 const AUTO_MS = 6200;
-const SIZES = "(min-width: 1024px) 780px, (min-width: 640px) 80vw, 72vw";
+const SIZES = "(min-width: 768px) 768px, 80vw";
 
 const PHOTOS = Array.from({ length: PHOTO_COUNT }, (_, i) => ({
   src: `/chaca_photos/chaca${i + 1}.jpg`,
@@ -98,6 +98,14 @@ function Beam({ kind, className }: Readonly<{ kind: "rail" | "stile"; className:
       {/* Darkened end grain on the protruding horns */}
       <div className={isRail ? "absolute inset-y-0 left-0 w-1 bg-ink/30" : "absolute inset-x-0 top-0 h-1 bg-ink/30"} />
       <div className={isRail ? "absolute inset-y-0 right-0 w-1 bg-ink/30" : "absolute inset-x-0 bottom-0 h-1 bg-ink/30"} />
+      {/* Warm bevel: lit upper/outer lip, shaded inner edge */}
+      <div
+        className={`absolute ${
+          isRail
+            ? "inset-x-0 top-0 h-[3px] bg-dusk-amber/35"
+            : "inset-y-0 left-0 w-[3px] bg-dusk-amber/30"
+        }`}
+      />
     </div>
   );
 }
@@ -107,7 +115,8 @@ function Joint({ className }: Readonly<{ className: string }>) {
   return (
     <div aria-hidden className={`absolute bg-chalet-cedar ${className}`}>
       <div className="absolute inset-0 bg-[repeating-radial-gradient(circle_at_28%_72%,transparent_0_2px,color-mix(in_oklab,var(--color-ink)_20%,transparent)_2px_3px)]" />
-      <div className="absolute inset-[3px] shadow-[inset_1px_1px_0_color-mix(in_oklab,var(--color-ink)_45%,transparent),inset_-1px_-1px_0_color-mix(in_oklab,var(--color-dusk-amber)_35%,transparent)]" />
+      <div className="absolute inset-[3px] shadow-[inset_1px_1px_0_color-mix(in_oklab,var(--color-ink)_45%,transparent),inset_-1px_-1px_0_color-mix(in_oklab,var(--color-dusk-amber)_40%,transparent)]" />
+      <div className="absolute inset-0 bg-linear-to-br from-dusk-amber/25 via-transparent to-ink/30" />
       <div className="absolute inset-0 grid grid-cols-2 place-items-center p-[22%]">
         <span className="size-1.5 self-start rounded-full bg-dusk-amber shadow-[inset_-1px_-1px_0_color-mix(in_oklab,var(--color-ink)_45%,transparent)] ring-1 ring-ink/30" />
         <span className="size-1.5 self-end rounded-full bg-dusk-amber shadow-[inset_-1px_-1px_0_color-mix(in_oklab,var(--color-ink)_45%,transparent)] ring-1 ring-ink/30" />
@@ -157,7 +166,6 @@ function TimberFrame({ children, counter }: Readonly<{ children: ReactNode; coun
   return (
     <div
       className="relative px-(--t) pt-(--t) pb-(--tb) shadow-[0_34px_70px_-24px] shadow-twilight-indigo/80"
-      style={{ "--t": "clamp(14px, 3.4vw, 22px)", "--tb": "clamp(30px, 7vw, 44px)" } as CSSProperties}
     >
       {/* Rails run long past the stiles and stiles past the rails: the crossed Alpine corner. */}
       <Beam kind="rail" className="-inset-x-[calc(var(--t)*0.4)] top-0 h-(--t)" />
@@ -199,9 +207,9 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
   const inView = useInView(regionRef, { amount: 0.35 });
 
   const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState(1);
   const [autoChoice, setAutoChoice] = useState<boolean | null>(null);
   const [hovering, setHovering] = useState(false);
+  const [ratios, setRatios] = useState<Readonly<Record<number, number>>>({});
   const [failed, setFailed] = useState<ReadonlySet<number>>(() => new Set());
 
   // Unless she chooses otherwise, the slideshow runs — but not for reduced motion.
@@ -209,13 +217,11 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
   const running = revealed && inView && autoPlay && !hovering;
 
   const go = (delta: number) => {
-    setDirection(delta >= 0 ? 1 : -1);
     setIndex((i) => (i + delta + PHOTO_COUNT) % PHOTO_COUNT);
   };
 
   const goTo = (target: number) => {
     if (target === index) return;
-    setDirection(target > index ? 1 : -1);
     setIndex(target);
   };
 
@@ -223,11 +229,15 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
   useEffect(() => {
     if (!running) return;
     const t = window.setTimeout(() => {
-      setDirection(1);
       setIndex((i) => (i + 1) % PHOTO_COUNT);
     }, AUTO_MS);
     return () => window.clearTimeout(t);
   }, [running, index]);
+
+  const noteRatio = (i: number, img: HTMLImageElement) => {
+    const { naturalWidth: w, naturalHeight: h } = img;
+    if (w > 0 && h > 0) setRatios((prev) => (prev[i] === w / h ? prev : { ...prev, [i]: w / h }));
+  };
 
   const markFailed = (i: number) =>
     setFailed((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
@@ -240,8 +250,6 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
   // Gentler angles than a portrait frame: a wide pane swings its edges much further.
   const rotateY = useTransform(sx, [-0.5, 0.5], [-6, 6]);
   const rotateX = useTransform(sy, [-0.5, 0.5], [5, -5]);
-  const photoX = useTransform(sx, [-0.5, 0.5], [9, -9]);
-  const photoY = useTransform(sy, [-0.5, 0.5], [7, -7]);
   const glareX = useTransform(sx, [-0.5, 0.5], [18, 82]);
   const glareY = useTransform(sy, [-0.5, 0.5], [12, 70]);
   const glare = useMotionTemplate`radial-gradient(90% 70% at ${glareX}% ${glareY}%, color-mix(in oklab, var(--color-orchid-white) 34%, transparent), transparent 60%)`;
@@ -280,6 +288,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
 
   const next = (index + 1) % PHOTO_COUNT;
   const photo = PHOTOS[index];
+  const ratio = failed.has(index) ? 1.5 : (ratios[index] ?? 1.5);
 
   return (
     <motion.div
@@ -319,7 +328,7 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
           hidden: { opacity: 0, y: 40, scale: 0.96 },
           shown: { opacity: 1, y: 0, scale: 1, transition: SPRING_SOFT },
         }}
-        className="mx-auto mt-10 w-full max-w-[820px] sm:mt-12"
+        className="mx-auto mt-10 w-full max-w-3xl sm:mt-12"
       >
         <section
           ref={regionRef}
@@ -333,8 +342,14 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
               onPointerMove={onPointerMove}
               onPointerEnter={onPointerEnter}
               onPointerLeave={onPointerLeave}
-              style={reduce ? undefined : { rotateX, rotateY, transformStyle: "preserve-3d" }}
-              className="relative"
+              className="relative mx-auto transition-[width] duration-700 ease-out"
+              style={{
+                ...(reduce ? {} : { rotateX, rotateY, transformStyle: "preserve-3d" as const }),
+                "--t": "clamp(14px, 3.4vw, 22px)",
+                "--tb": "clamp(30px, 7vw, 44px)",
+                "--m": "clamp(8px, 2vw, 12px)",
+                width: `min(100%, calc(65vh * ${ratio} + 2 * (var(--t) + var(--m))))`,
+              } as CSSProperties}
             >
               {/* Ember backlight against the dusk sky */}
               <div
@@ -344,12 +359,12 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
 
               <TimberFrame counter={`${pad(index + 1)} / ${PHOTO_COUNT}`}>
                 {/* Recessed linen matboard */}
-                <div className="bg-linen-deep p-3 shadow-[inset_0_2px_10px_color-mix(in_oklab,var(--color-ink)_32%,transparent)] sm:p-4">
+                <div className="bg-linen-deep p-(--m) shadow-[inset_0_2px_10px_color-mix(in_oklab,var(--color-ink)_32%,transparent)]">
                   {/* The photograph, ringed by a gold fillet */}
                   <motion.div
                     onPanEnd={onPanEnd}
-                    style={{ touchAction: "pan-y" }}
-                    className="relative aspect-[16/9] overflow-hidden rounded-sm bg-linen ring-1 ring-dusk-amber/60 ring-offset-[3px] ring-offset-linen-deep"
+                    style={{ touchAction: "pan-y", aspectRatio: ratio }}
+                    className="relative w-full overflow-hidden rounded-sm bg-linen ring-1 ring-dusk-amber/60 ring-offset-[3px] ring-offset-linen-deep"
                   >
                     <div
                       role="group"
@@ -367,40 +382,21 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
                           exit={{ opacity: 0 }}
                           transition={{ duration: reduce ? 0.2 : 1.2, ease: EASE_DUSK }}
                         >
-                          <motion.div
-                            className="absolute -inset-2"
-                            style={reduce ? undefined : { x: photoX, y: photoY }}
-                          >
-                            {failed.has(index) ? (
-                              <BotanicalFallback index={index} />
-                            ) : (
-                              <motion.div
-                                className="absolute inset-0"
-                                initial={{ scale: 1.01, x: 0, y: 0 }}
-                                animate={
-                                  reduce
-                                    ? undefined
-                                    : {
-                                        scale: 1.07,
-                                        x: `${direction * (index % 2 ? 1 : -1)}%`,
-                                        y: index % 3 === 0 ? "-1%" : "1%",
-                                      }
-                                }
-                                transition={{ duration: AUTO_MS / 1000 + 3, ease: "linear" }}
-                              >
-                                <Image
-                                  src={photo.src}
-                                  alt={photo.alt}
-                                  fill
-                                  sizes={SIZES}
-                                  loading={index === 0 ? "eager" : undefined}
-                                  fetchPriority={index === 0 ? "high" : undefined}
-                                  className="object-cover"
-                                  onError={() => markFailed(index)}
-                                />
-                              </motion.div>
-                            )}
-                          </motion.div>
+                          {failed.has(index) ? (
+                            <BotanicalFallback index={index} />
+                          ) : (
+                            <Image
+                              src={photo.src}
+                              alt={photo.alt}
+                              fill
+                              sizes={SIZES}
+                              loading={index === 0 ? "eager" : undefined}
+                              fetchPriority={index === 0 ? "high" : undefined}
+                              className="object-contain"
+                              onLoad={(e) => noteRatio(index, e.currentTarget)}
+                              onError={() => markFailed(index)}
+                            />
+                          )}
                         </motion.div>
                       </AnimatePresence>
                     </div>
@@ -414,7 +410,8 @@ export default function PhotoCarousel({ revealed = true }: Readonly<PhotoCarouse
                           fill
                           sizes={SIZES}
                           loading="eager"
-                          className="object-cover"
+                          className="object-contain"
+                          onLoad={(e) => noteRatio(next, e.currentTarget)}
                           onError={() => markFailed(next)}
                         />
                       </div>
