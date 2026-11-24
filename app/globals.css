@@ -37,8 +37,7 @@
   --animate-breathe: breathe 4.4s ease-in-out infinite;
   --animate-tail: tail-sway 6.5s ease-in-out infinite;
   --animate-ear: ear-twitch 8.5s ease-in-out infinite;
-  --animate-peek: peek 12s ease-in-out infinite;
-  --animate-peek-shut: peek-shut 12s ease-in-out infinite;
+  --animate-whisker: whisker-twitch 7.5s ease-in-out infinite;
   --animate-mote: mote 16s ease-in-out infinite;
   --animate-snow: crt-snow 0.25s steps(1, end) both;
 }
@@ -175,30 +174,22 @@
   }
 }
 
-/* One eye opens a sliver, checks the room, and closes again. */
-@keyframes peek {
+/* Whiskers rest, then a quick two-beat twitch. */
+@keyframes whisker-twitch {
   0%,
-  70%,
-  86%,
+  76%,
+  89%,
   100% {
-    opacity: 0;
+    transform: rotate(0deg);
   }
-  73%,
-  83% {
-    opacity: 1;
+  79% {
+    transform: rotate(var(--twitch, 4deg));
   }
-}
-
-@keyframes peek-shut {
-  0%,
-  70%,
-  86%,
-  100% {
-    opacity: 1;
+  82% {
+    transform: rotate(calc(var(--twitch, 4deg) * -0.4));
   }
-  73%,
-  83% {
-    opacity: 0;
+  85% {
+    transform: rotate(calc(var(--twitch, 4deg) * 0.6));
   }
 }
 

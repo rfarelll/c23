@@ -32,6 +32,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { SPRING_TACTILE, usePrefersReducedMotion } from "../lib/motion";
 import { Breeze, CallaLilyArt, MagnoliaSprigArt } from "./BotanicalAccents";
@@ -305,54 +306,280 @@ const BEZEL_INNER = barrel(309, 496, 284, 274);
 const GLASS_SEAT = barrel(318, 504, 266, 258);
 
 /* Cats — local coordinates, y = 0 on the TV's top edge.
-   Cream Persian at room (420, 470); white tabby at room (592, 470). */
+   Cream Persian (~5.5 kg) at room (404, 470); the broader, heavier white
+   and tabby tom (~6.5 kg) at room (598, 470). Both are lineless: a firelit
+   rim peeking above a velvety fill, seeded fur locks feathering every edge. */
+
+type Pt = readonly [number, number];
+type Sample = { x: number; y: number; nx: number; ny: number; tx: number; ty: number };
+
+/** One pointed lock of fur rooted at (bx, by): it reaches along `n` and leans along `t` by `lean`. */
+function lock(bx: number, by: number, n: Pt, t: Pt, len: number, w: number, lean: number) {
+  const p = (along: number, side: number) =>
+    `${r1(bx + n[0] * along + t[0] * side)} ${r1(by + n[1] * along + t[1] * side)}`;
+  return `M${p(-w * 0.5, -w / 2)}Q${p(len * 0.55, -w * 0.5 + len * lean * 0.3)} ${p(len, len * lean)}Q${p(len * 0.5, w * 0.6 + len * lean * 0.65)} ${p(-w * 0.5, w / 2)}Z`;
+}
+
+/** Seeded locks fanned along an elliptical arc (angles run clockwise on screen); `lean` > 0 combs them clockwise. */
+function furTufts(
+  seed: number,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  from: number,
+  to: number,
+  count: number,
+  len: number,
+  w: number,
+  lean = 0.3,
+) {
+  const rand = mulberry32(seed);
+  const step = (to - from) / count;
+  let d = "";
+  for (let i = 0; i < count; i++) {
+    const a = from + step * (i + 0.5 + (rand() - 0.5) * 0.6);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const nl = Math.hypot(c / rx, s / ry);
+    const tl = Math.hypot(s * rx, c * ry);
+    const l = len * (0.65 + rand() * 0.6);
+    const lw = w * (0.75 + rand() * 0.5);
+    const ln = lean * (0.6 + rand() * 0.8);
+    d += lock(cx + c * rx, cy + s * ry, [c / rx / nl, s / ry / nl], [(-s * rx) / tl, (c * ry) / tl], l, lw, ln);
+  }
+  return d;
+}
+
+/** A Catmull-Rom centreline through `pts`, sampled `n + 1` times with unit tangents and normals. */
+function spline(pts: readonly Pt[], n: number): Sample[] {
+  const last = pts.length - 1;
+  return Array.from({ length: n + 1 }, (_, k) => {
+    const t = (k / n) * last;
+    const i = Math.min(Math.floor(t), last - 1);
+    const u = t - i;
+    const a = pts[Math.max(i - 1, 0)];
+    const b = pts[i];
+    const c = pts[i + 1];
+    const d = pts[Math.min(i + 2, last)];
+    const at = (j: 0 | 1) =>
+      0.5 * (2 * b[j] + (c[j] - a[j]) * u + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * u * u + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * u ** 3);
+    const slope = (j: 0 | 1) =>
+      0.5 * (c[j] - a[j] + 2 * (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * u + 3 * (3 * b[j] - a[j] - 3 * c[j] + d[j]) * u * u);
+    const dx = slope(0);
+    const dy = slope(1);
+    const l = Math.hypot(dx, dy) || 1;
+    return { x: at(0), y: at(1), tx: dx / l, ty: dy / l, nx: -dy / l, ny: dx / l };
+  });
+}
+
+/** A tapered, round-capped tube along samples k0…k1 — a tail, or one segment of it. */
+function tube(s: readonly Sample[], width: (k: number) => number, k0: number, k1: number) {
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let k = k0; k <= k1; k++) {
+    const h = width(k) / 2;
+    const p = s[k];
+    left.push(`${r1(p.x + p.nx * h)} ${r1(p.y + p.ny * h)}`);
+    right.push(`${r1(p.x - p.nx * h)} ${r1(p.y - p.ny * h)}`);
+  }
+  right.reverse();
+  const r = (k: number) => r1(width(k) / 2);
+  return `M${left.join("L")}A${r(k1)} ${r(k1)} 0 0 0 ${right[0]}L${right.slice(1).join("L")}A${r(k0)} ${r(k0)} 0 0 0 ${left[0]}Z`;
+}
+
+/** Locks along both flanks of a tube, combed toward its tip — a long-haired plume. */
+function tubeTufts(seed: number, s: readonly Sample[], width: (k: number) => number, k0: number, k1: number, len: number, w: number) {
+  const rand = mulberry32(seed);
+  let d = "";
+  for (let k = k0; k <= k1; k += 2) {
+    const p = s[k];
+    const h = (width(k) / 2) * 0.9;
+    for (const side of [1, -1]) {
+      const l = len * (0.6 + rand() * 0.7);
+      d += lock(p.x + p.nx * h * side, p.y + p.ny * h * side, [p.nx * side, p.ny * side], [p.tx, p.ty], l, w, 0.9 + rand() * 0.5);
+    }
+  }
+  return d;
+}
+
+/** A band straight across a tube between samples k0 and k1; clipped to the tube it reads as a ring. */
+function band(s: readonly Sample[], k0: number, k1: number, reach = 24) {
+  const p = (q: Sample, h: number) => `${r1(q.x + q.nx * h)} ${r1(q.y + q.ny * h)}`;
+  return `M${p(s[k0], reach)}L${p(s[k1], reach)}L${p(s[k1], -reach)}L${p(s[k0], -reach)}Z`;
+}
+
+/** An almond eye. `dir` = -1 puts the outer corner on the left; `slant` lifts it. */
+function almond(cx: number, cy: number, hw: number, up: number, down: number, slant: number, dir: 1 | -1) {
+  const o = `${r1(cx + dir * hw)} ${r1(cy - slant)}`;
+  const i = `${r1(cx - dir * hw)} ${r1(cy + slant)}`;
+  const x = (k: number) => r1(cx + dir * hw * k);
+  return `M${o}C${x(0.5)} ${r1(cy - up)} ${x(-0.55)} ${r1(cy - up)} ${i}C${x(-0.5)} ${r1(cy + down)} ${x(0.5)} ${r1(cy + down)} ${o}Z`;
+}
+
+/** An upper lid lowered to a line running from the outer corner (cy + oy) to the inner (cy + iy), bowed by `sag`. */
+function lid(cx: number, cy: number, hw: number, oy: number, iy: number, sag: number, dir: 1 | -1) {
+  const ox = r1(cx + dir * (hw + 3));
+  const ix = r1(cx - dir * (hw + 3));
+  return `M${ox} ${r1(cy - 14)}L${ix} ${r1(cy - 14)}L${ix} ${r1(cy + iy)}Q${r1(cx)} ${r1(cy + sag)} ${ox} ${r1(cy + oy)}Z`;
+}
+
+/** Mirror an x coordinate across a face's centre line. */
+const mirror = (axis: number) => (d: string) =>
+  d.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (_, x: string, y: string) => `${r1(axis * 2 - Number(x))} ${y}`);
 
 /** Cheek tufts: only the lower flanks of the face (sin > 0 is downward) fluff out. */
 const cheekTufts = (strength: number) => (a: number) =>
   Math.sin(a) > 0.15 && Math.abs(Math.cos(a)) > 0.42 ? strength * Math.abs(Math.cos(a)) : 0;
 
-const CREAM_BODY = scallop(10, 0, 108, 88, 11, furPuff(71, 0.04, 0.06), Math.PI, Math.PI * 2);
-const CREAM_HEAD = scallop(-40, -58, 52, 45, 22, furPuff(72, 0.012, 0.018, cheekTufts(0.26)));
-/** Curled along the cabinet's rounded top-left corner, the tip tucked back in. */
-const CREAM_TAIL =
-  "M-78 -25C-100 -27 -122 -18 -136 0C-145 13 -146 30 -137 37C-129 43 -121 40 -124 31C-127 22 -122 10 -112 3C-100 -4 -90 -4 -78 -3Z";
-const CREAM_TAIL_SHEEN = "M-80 -23C-100 -25 -119 -17 -132 -1C-120 -11 -100 -18 -80 -17Z";
-const CREAM_PAW = "M-18 -12C-20 2 -19 16 -15 24C-11 30 3 30 7 24C11 16 10 2 6 -12Z";
-const CREAM_EAR_L = "M-90 -84C-94 -100 -92 -114 -86 -121C-78 -118 -66 -108 -58 -98Z";
-const CREAM_EAR_L_IN = "M-84 -92C-86 -102 -85 -110 -82 -114C-77 -110 -71 -105 -66 -99Z";
-const CREAM_EAR_R = "M-22 -98C-14 -108 -2 -118 6 -121C12 -114 14 -100 10 -84Z";
-const CREAM_EAR_R_IN = "M-14 -99C-9 -105 -3 -110 2 -114C5 -110 6 -102 4 -92Z";
+const TAIL_SAMPLES = 36;
+/** Where each tail bends for its slow tip sway. */
+const TAIL_JOINT = 22;
 
-const TABBY_BODY = "M-78 0C-84 -44 -60 -88 10 -90C80 -92 110 -46 104 0Z";
-const TABBY_HEAD = scallop(-24, -54, 48, 43, 16, furPuff(91, 0.01, 0.02, cheekTufts(0.1)));
-const TABBY_EAR_L = "M-70 -78C-73 -96 -67 -110 -60 -116C-50 -111 -40 -102 -34 -94Z";
-const TABBY_EAR_L_IN = "M-63 -88C-65 -100 -61 -107 -58 -109C-52 -105 -47 -100 -44 -95Z";
-const TABBY_EAR_R = "M-12 -96C-4 -104 6 -110 14 -114C20 -106 20 -92 16 -80Z";
-const TABBY_EAR_R_IN = "M-4 -98C2 -103 8 -107 12 -108C14 -101 14 -95 12 -88Z";
-/** A ringed tail wrapped from the far haunch round the front, tip resting beside the paws. */
-const TABBY_TAIL =
-  "M104 -14C114 -2 100 8 70 9C44 10 20 8 4 4C-4 2 -6 -6 2 -8C18 -4 44 -2 70 -3C88 -4 98 -8 96 -16Z";
-const TABBY_BACK_STRIPES = [
-  stripe(-14, -94, -4, 30, 8),
-  stripe(8, -96, 2, 40, 10),
-  stripe(30, -96, 6, 46, 11),
-  stripe(52, -92, 10, 48, 11),
-  stripe(74, -82, 14, 44, 10),
-  stripe(92, -64, 12, 36, 9),
+/* — Cream Persian: long, layered honey fur — */
+const CREAM_BODY = scallop(6, 0, 94, 78, 14, furPuff(71, 0.03, 0.05), Math.PI, Math.PI * 2);
+const CREAM_BACK_TUFTS = furTufts(711, 6, -2, 94, 78, Math.PI * 1.06, Math.PI * 1.97, 24, 9, 10, 0.9);
+const CREAM_BODY_LIGHT = furTufts(712, 12, 6, 74, 58, Math.PI * 1.12, Math.PI * 1.88, 16, 17, 7, 0.6);
+const CREAM_BODY_SHADE = furTufts(713, 18, 10, 58, 40, Math.PI * 1.15, Math.PI * 1.85, 12, 15, 6, 0.6);
+const CREAM_HEAD = scallop(-38, -58, 48, 42, 24, furPuff(72, 0.015, 0.02, cheekTufts(0.22)));
+const CREAM_CHEEK_TUFTS =
+  furTufts(721, -38, -56, 54, 42, Math.PI * 0.06, Math.PI * 0.42, 7, 11, 10, -0.6) +
+  furTufts(722, -38, -56, 54, 42, Math.PI * 0.58, Math.PI * 0.94, 7, 11, 10, 0.6);
+const CREAM_CROWN_TUFTS = furTufts(723, -38, -60, 47, 41, Math.PI * 1.15, Math.PI * 1.85, 9, 6, 7, 0.2);
+const CREAM_FACE_STRANDS = furTufts(724, -38, -56, 40, 32, Math.PI * 1.1, Math.PI * 1.9, 10, 10, 4, 0.5);
+/** The heavy chest ruff: two tiers of long locks spilling down under the chin. */
+const CREAM_RUFF_BACK = furTufts(731, -36, -26, 50, 22, Math.PI * 0.1, Math.PI * 0.9, 13, 11, 13, 0.25);
+const CREAM_RUFF_FRONT = furTufts(732, -38, -30, 36, 16, Math.PI * 0.15, Math.PI * 0.85, 10, 9, 12, -0.25);
+const CREAM_EAR_L = "M-88 -84C-92 -100 -90 -114 -84 -121C-76 -118 -64 -108 -56 -98Z";
+const CREAM_EAR_L_IN = "M-82 -92C-84 -102 -83 -110 -80 -114C-75 -110 -69 -105 -64 -99Z";
+const CREAM_EAR_R = "M-20 -98C-12 -108 0 -118 8 -121C14 -114 16 -100 12 -84Z";
+const CREAM_EAR_R_IN = "M-12 -99C-7 -105 -1 -110 4 -114C7 -110 8 -102 6 -92Z";
+const CREAM_EAR_L_TUFTS =
+  lock(-74, -98, [-0.45, -0.89], [0.89, -0.45], 13, 5, 0.25) + lock(-70, -100, [-0.3, -0.95], [0.95, -0.3], 10, 4, 0.3);
+const CREAM_EAR_R_TUFTS =
+  lock(-2, -100, [0.45, -0.89], [0.89, 0.45], 13, 5, -0.25) + lock(-6, -102, [0.3, -0.95], [0.95, 0.3], 10, 4, -0.3);
+/** Round Persian eyes under heavy, grumpy-sleepy lids, sagging toward the nose. */
+const CREAM_EYES = ([[-56, -62, -1], [-20, -62, 1]] as const).map(([cx, cy, dir], i) => ({
+  cx,
+  cy,
+  id: `lr-clip-cream-eye-${i}`,
+  d: almond(cx, cy, 9, 8, 8, 0.5, dir),
+  socket: almond(cx, cy, 10.4, 9.4, 9.2, 0.5, dir),
+  lid: lid(cx, cy, 9, -1.4, 0.9, 1.6, dir),
+}));
+const CREAM_NOSE = "M-42.5 -52Q-38 -49.5 -33.5 -52Q-35 -46.5 -38 -46Q-41 -46.5 -42.5 -52Z";
+/** A small downturned mouth: grumpy, not sad. */
+const CREAM_MOUTH = "M-38 -46V-42.5M-43 -38.6Q-40.6 -40.6 -38 -42.5Q-35.4 -40.6 -33 -38.6";
+const CREAM_WHISKERS_L = "M-48 -42Q-70 -48 -94 -48M-48 -39.5Q-72 -41 -96 -36M-47 -37Q-68 -34 -90 -25";
+const CREAM_WHISKERS_R = mirror(-38)(CREAM_WHISKERS_L);
+/** The thick foreleg draped over the bezel, its long hair feathering both flanks. */
+const CREAM_LEG = "M-26 -14C-29 2 -27 16 -22 25C-17 32 1 32 6 25C10 16 9 2 6 -14Z";
+const CREAM_LEG_TUFTS =
+  furTufts(741, -10, 8, 17, 22, Math.PI * 0.55, Math.PI * 1.2, 5, 8, 6, 0.45) +
+  furTufts(742, -10, 8, 17, 22, -Math.PI * 0.2, Math.PI * 0.45, 5, 8, 6, -0.45) +
+  furTufts(743, -10, 26, 13, 4, Math.PI * 0.2, Math.PI * 0.8, 4, 4, 4, 0);
+/** Plume tail, round the cabinet's rounded top-left corner (centre (-68, 48), r ≈ 46). */
+const CREAM_TAIL = spline(
+  [[-40, -12], [-62, -6], [-86, 4], [-104, 22], [-112, 44], [-108, 62], [-98, 70]],
+  TAIL_SAMPLES,
+);
+const creamTailWidth = (k: number) => 26 - (12 * k) / TAIL_SAMPLES;
+const CREAM_TAIL_BASE = tube(CREAM_TAIL, creamTailWidth, 0, TAIL_JOINT);
+const CREAM_TAIL_TIP = tube(CREAM_TAIL, creamTailWidth, TAIL_JOINT - 1, TAIL_SAMPLES);
+const CREAM_TAIL_BASE_TUFTS = tubeTufts(751, CREAM_TAIL, creamTailWidth, 6, TAIL_JOINT, 6, 7);
+const CREAM_TAIL_TIP_TUFTS = tubeTufts(752, CREAM_TAIL, creamTailWidth, TAIL_JOINT, TAIL_SAMPLES, 7, 7);
+
+/* — White & tabby tom: broad, dense, snowy, with dark saddle markings — */
+const TABBY_BODY = "M-98 0C-106 -56 -76 -108 8 -110C92 -112 112 -58 102 0Z";
+const TABBY_BACK_TUFTS = furTufts(901, 2, 0, 102, 110, Math.PI * 1.32, Math.PI * 1.94, 20, 4, 6, 0.8);
+const TABBY_SHOULDER_TUFTS = furTufts(902, 2, 0, 102, 110, Math.PI * 1.04, Math.PI * 1.3, 7, 4, 6, 0.8);
+const TABBY_BODY_STRANDS = furTufts(903, -20, -8, 60, 54, Math.PI * 1.1, Math.PI * 1.6, 9, 12, 5, 0.6);
+const TABBY_SADDLE = scallop(46, -98, 72, 40, 18, furPuff(93, 0.02, 0.05));
+const TABBY_HIP = scallop(86, -34, 34, 30, 12, furPuff(94, 0.03, 0.05));
+/** Feathered spill where the dark patches give way to white. */
+const TABBY_PATCH_EDGE =
+  furTufts(95, 46, -98, 72, 40, Math.PI * 0.12, Math.PI * 0.88, 14, 8, 6, 0.3) +
+  furTufts(96, 86, -34, 34, 30, Math.PI * 0.55, Math.PI * 1.25, 6, 6, 5, 0.3);
+const TABBY_PATCH_STRIPES = [
+  stripe(0, -114, -6, 30, 7),
+  stripe(22, -116, 0, 38, 8),
+  stripe(44, -116, 6, 42, 9),
+  stripe(66, -112, 10, 40, 9),
+  stripe(88, -100, 12, 32, 8),
+  stripe(78, -60, 10, 22, 6),
+  stripe(98, -54, 8, 24, 6),
 ].join("");
-const TABBY_FLANK_STRIPES = [stripe(20, -48, 8, 22, 6), stripe(44, -46, 10, 24, 6), stripe(68, -40, 10, 22, 6)].join("");
-const TABBY_BROW = [stripe(-36, -100, -2, 20, 5), stripe(-24, -101, 0, 23, 6), stripe(-12, -100, 2, 20, 5)].join("");
-const TABBY_CHEEK_STRIPES =
-  "M-72 -52Q-64 -55 -56 -50Q-64 -50 -72 -48Z M-73 -44Q-65 -46 -58 -42Q-65 -42 -73 -40Z M24 -52Q16 -55 8 -50Q16 -50 24 -48Z M25 -44Q17 -46 10 -42Q17 -42 25 -40Z";
-const TABBY_TAIL_RINGS = [84, 66, 48, 30, 13].map((x) => pill(x - 4, -14, 8, 26, 4)).join("");
-const TABBY_FRECKLES = [
-  [-33, -37],
-  [-30, -33.5],
-  [-35.5, -33],
-  [-15, -37],
-  [-18, -33.5],
-  [-12.5, -33],
-] as const;
+const TABBY_PATCH_STRANDS = furTufts(915, 46, -100, 56, 26, Math.PI * 1.1, Math.PI * 1.9, 12, 10, 4, 0.6);
+/** A deep, broad white chest under the jowls. */
+const TABBY_CHEST = scallop(-30, -18, 60, 26, 16, furPuff(97, 0.02, 0.04));
+const TABBY_CHEST_TUFTS = furTufts(98, -30, -18, 60, 26, Math.PI * 0.7, Math.PI * 1.2, 7, 5, 7, 0.6);
+const TABBY_CHEST_STRANDS = furTufts(914, -30, -16, 46, 18, Math.PI * 0.15, Math.PI * 0.85, 10, 8, 5, 0);
+const TABBY_HEAD = scallop(-30, -64, 52, 46, 20, furPuff(91, 0.012, 0.02, cheekTufts(0.16)));
+const TABBY_JOWL_TUFTS =
+  furTufts(911, -30, -62, 60, 46, Math.PI * 0.06, Math.PI * 0.36, 6, 5.5, 9, -0.6) +
+  furTufts(912, -30, -62, 60, 46, Math.PI * 0.64, Math.PI * 0.94, 6, 5.5, 9, 0.6);
+const TABBY_CROWN_TUFTS = furTufts(913, -30, -66, 51, 45, Math.PI * 1.18, Math.PI * 1.82, 11, 3.5, 6, 0.5);
+/** The dark tabby crown, ears to eye-line, split by a clean white blaze. */
+const TABBY_CAP = scallop(-30, -98, 62, 40, 16, furPuff(99, 0.03, 0.05));
+const TABBY_CAP_EDGE = furTufts(916, -30, -98, 62, 40, Math.PI * 0.08, Math.PI * 0.92, 16, 6, 6, 0.4);
+const TABBY_BLAZE = "M-32.5 -114Q-30 -116 -27.5 -114L-23 -86Q-21 -72 -16 -60Q-30 -52 -44 -60Q-39 -72 -37 -86Z";
+const TABBY_CAP_STRIPES = [
+  stripe(-50, -114, -5, 22, 5),
+  stripe(-41, -116, -2, 22, 4.5),
+  stripe(-19, -116, 2, 22, 4.5),
+  stripe(-10, -114, 5, 22, 5),
+  stripe(-64, -104, -6, 16, 4),
+  stripe(4, -104, 6, 16, 4),
+].join("");
+const TABBY_MASCARA = "M-60 -68Q-70 -66 -78 -58Q-70 -62 -60 -64Z M0 -68Q10 -66 18 -58Q10 -62 0 -64Z";
+const TABBY_EAR_L = "M-82 -84C-86 -104 -82 -120 -74 -128C-62 -122 -50 -112 -44 -102Z";
+const TABBY_EAR_L_IN = "M-76 -94C-78 -106 -75 -116 -71 -120C-64 -115 -57 -109 -53 -103Z";
+const TABBY_EAR_R = "M-16 -102C-10 -112 2 -122 14 -128C22 -120 24 -104 20 -84Z";
+const TABBY_EAR_R_IN = "M-8 -103C-3 -109 4 -115 10 -120C14 -114 15 -106 14 -94Z";
+const TABBY_EAR_L_TUFTS = lock(-66, -102, [-0.4, -0.92], [0.92, -0.4], 11, 4.5, 0.25);
+const TABBY_EAR_R_TUFTS = lock(6, -102, [0.4, -0.92], [0.92, 0.4], 11, 4.5, -0.25);
+/** Low, heavy brow ridges angled down toward the nose: a serious, level stare. */
+const TABBY_BROWS = "M-62 -78Q-51 -79 -37 -72.5Q-50 -74.5 -62 -75Z M2 -78Q-9 -79 -23 -72.5Q-10 -74.5 2 -75Z";
+const TABBY_BROW_GLINT = "M-61 -81Q-51 -82.5 -40 -77.5Q-51 -80 -61 -81Z M1 -81Q-9 -82.5 -20 -77.5Q-9 -80 1 -81Z";
+/** Pale green-hazel eyes, open and narrowed, outer corners lifted. */
+const TABBY_EYES = ([[-49, -68, -1], [-11, -68, 1]] as const).map(([cx, cy, dir], i) => ({
+  cx,
+  cy,
+  id: `lr-clip-tabby-eye-${i}`,
+  d: almond(cx, cy, 9.5, 5, 7, 1.6, dir),
+  socket: almond(cx, cy, 10.8, 6.6, 8.2, 1.6, dir),
+  lid: lid(cx, cy, 9.5, -2.8, -0.4, -2.9, dir),
+}));
+const TABBY_NOSE = "M-35 -55Q-30 -52.5 -25 -55Q-26.5 -49.5 -30 -48.5Q-33.5 -49.5 -35 -55Z";
+const TABBY_MOUTH = "M-30 -48.5V-45M-35.5 -41.2Q-32.8 -43 -30 -45Q-27.2 -43 -24.5 -41.2";
+/** Dark freckles in the golden whisker pads, mirrored across the muzzle. */
+const TABBY_FRECKLES = (
+  [
+    [-41, -45],
+    [-37.5, -46.5],
+    [-34, -45],
+    [-40, -41.5],
+    [-35.5, -42],
+  ] as const
+).flatMap(([x, y]): Pt[] => [[x, y], [-60 - x, y]]);
+const TABBY_WHISKERS_L = "M-40 -44Q-60 -50 -82 -51M-40 -41.5Q-62 -43 -84 -39M-39.5 -39Q-58 -36 -78 -29";
+const TABBY_WHISKERS_R = mirror(-30)(TABBY_WHISKERS_L);
+/** Thick ringed tail over the cabinet's top-right corner (centre (66, 48)), hooking in clear of the controls. */
+const TABBY_TAIL = spline(
+  [[72, -16], [92, -6], [106, 10], [115, 32], [117, 54], [116, 70], [112, 82]],
+  TAIL_SAMPLES,
+);
+const tabbyTailWidth = (k: number) => 22 - (10 * k) / TAIL_SAMPLES;
+const TABBY_TAIL_BASE = tube(TABBY_TAIL, tabbyTailWidth, 0, TAIL_JOINT);
+const TABBY_TAIL_TIP = tube(TABBY_TAIL, tabbyTailWidth, TAIL_JOINT - 1, TAIL_SAMPLES);
+const tailRings = (spans: ReadonlyArray<readonly [number, number]>, soft = 0) =>
+  spans.map(([a, b]) => band(TABBY_TAIL, Math.max(a - soft, 0), Math.min(b + soft, TAIL_SAMPLES))).join("");
+const TABBY_RINGS_BASE = [[6, 8], [11, 13], [16, 18]] as const;
+const TABBY_RINGS_TIP = [[24, 26], [29, 31], [34, 36]] as const;
+const TABBY_RINGS_BASE_D = tailRings(TABBY_RINGS_BASE);
+const TABBY_RINGS_BASE_SOFT = tailRings(TABBY_RINGS_BASE, 1);
+const TABBY_RINGS_TIP_D = tailRings(TABBY_RINGS_TIP);
+const TABBY_RINGS_TIP_SOFT = tailRings(TABBY_RINGS_TIP, 1);
 
 /* ───────────────────────────────────────────────────────────────
    Exterior window — viewBox 0 0 410 500 is exactly the glass opening.
@@ -578,19 +805,35 @@ function RoomDefs() {
         <Stop offset="45%" color="ember-gold" />
         <Stop offset="90%" color="linen-deep" />
       </linearGradient>
+      <linearGradient id="lr-cream-fur" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0%" color="linen-deep" />
+        <Stop offset="35%" color="ember-gold" />
+        <Stop offset="100%" color="dusk-amber" />
+      </linearGradient>
+      <linearGradient id="lr-cream-ruff" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0%" color="ember-gold" />
+        <Stop offset="45%" color="linen-deep" />
+        <Stop offset="100%" color="ember-gold" />
+      </linearGradient>
       <linearGradient id="lr-cream-ear" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0%" color="dusk-amber" />
         <Stop offset="100%" color="ember-gold" />
       </linearGradient>
-      <linearGradient id="lr-cream-tail" x1="1" y1="0" x2="0" y2="1">
+      <radialGradient id="lr-cream-iris" cx="0.5" cy="0.5" r="0.5">
         <Stop offset="0%" color="ember-gold" />
-        <Stop offset="65%" color="dusk-amber" />
-        <Stop offset="100%" color="dusk-amber" />
-      </linearGradient>
+        <Stop offset="45%" color="dusk-amber" />
+        <Stop offset="85%" color="dusk-amber" />
+        <Stop offset="100%" color="hearth-terracotta" />
+      </radialGradient>
       <radialGradient id="lr-soft-linen">
         <Stop offset="0%" color="linen-deep" opacity={0.95} />
         <Stop offset="55%" color="linen-deep" opacity={0.55} />
         <Stop offset="100%" color="linen-deep" opacity={0} />
+      </radialGradient>
+      <radialGradient id="lr-soft-cream">
+        <Stop offset="0%" color="linen" />
+        <Stop offset="55%" color="linen" opacity={0.7} />
+        <Stop offset="100%" color="linen" opacity={0} />
       </radialGradient>
       <radialGradient id="lr-soft-white">
         <Stop offset="0%" color="orchid-white" />
@@ -613,6 +856,10 @@ function RoomDefs() {
         <Stop offset="0%" color="ink" opacity={0} />
         <Stop offset="100%" color="ink" opacity={0.3} />
       </linearGradient>
+      <linearGradient id="lr-lid-shadow" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0%" color="ink" opacity={0.6} />
+        <Stop offset="100%" color="ink" opacity={0} />
+      </linearGradient>
       <linearGradient id="lr-tabby-body" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0%" color="orchid-white" />
         <Stop offset="55%" color="linen" />
@@ -623,10 +870,30 @@ function RoomDefs() {
         <Stop offset="60%" color="orchid-white" />
         <Stop offset="100%" color="linen" />
       </linearGradient>
+      <linearGradient id="lr-tabby-patch" x1="0" y1="0" x2="0.3" y2="1">
+        <Stop offset="0%" color="chalet-cedar" />
+        <Stop offset="65%" color="twilight-indigo" />
+        <Stop offset="100%" color="twilight-indigo" />
+      </linearGradient>
       <linearGradient id="lr-tabby-ear" x1="0" y1="0" x2="0" y2="1">
         <Stop offset="0%" color="twilight-indigo" />
-        <Stop offset="100%" color="bruised-lavender" />
+        <Stop offset="100%" color="chalet-cedar" />
       </linearGradient>
+      <radialGradient id="lr-tabby-iris" cx="0.5" cy="0.5" r="0.5">
+        <Stop offset="0%" color="linen" />
+        <Stop offset="24%" color="alpine-sage" opacity={0.5} />
+        <Stop offset="66%" color="alpine-sage" />
+        <Stop offset="100%" color="twilight-indigo" />
+      </radialGradient>
+      <radialGradient id="lr-tabby-hazel">
+        <Stop offset="0%" color="dusk-amber" opacity={0.75} />
+        <Stop offset="100%" color="dusk-amber" opacity={0} />
+      </radialGradient>
+      <radialGradient id="lr-tabby-pad">
+        <Stop offset="0%" color="ember-gold" opacity={0.95} />
+        <Stop offset="55%" color="dusk-amber" opacity={0.55} />
+        <Stop offset="100%" color="dusk-amber" opacity={0} />
+      </radialGradient>
 
       {/* CRT: a deep, curved bezel */}
       <linearGradient id="lr-bezel" x1="0" y1="0" x2="0" y2="1">
@@ -672,21 +939,36 @@ function RoomDefs() {
       <clipPath id="lr-clip-cream-head">
         <path d={CREAM_HEAD} />
       </clipPath>
-      <clipPath id="lr-clip-cream-tail">
-        <path d={CREAM_TAIL} />
+      <clipPath id="lr-clip-cream-leg">
+        <path d={CREAM_LEG} />
       </clipPath>
-      <clipPath id="lr-clip-cream-paw">
-        <path d={CREAM_PAW} />
+      <clipPath id="lr-clip-cream-tail-base">
+        <path d={CREAM_TAIL_BASE} />
+      </clipPath>
+      <clipPath id="lr-clip-cream-tail-tip">
+        <path d={CREAM_TAIL_TIP} />
       </clipPath>
       <clipPath id="lr-clip-tabby">
         <path d={TABBY_BODY} />
       </clipPath>
+      <clipPath id="lr-clip-tabby-patches">
+        <path d={TABBY_SADDLE} />
+        <path d={TABBY_HIP} />
+      </clipPath>
       <clipPath id="lr-clip-tabby-head">
         <path d={TABBY_HEAD} />
       </clipPath>
-      <clipPath id="lr-clip-tabby-tail">
-        <path d={TABBY_TAIL} />
+      <clipPath id="lr-clip-tabby-tail-base">
+        <path d={TABBY_TAIL_BASE} />
       </clipPath>
+      <clipPath id="lr-clip-tabby-tail-tip">
+        <path d={TABBY_TAIL_TIP} />
+      </clipPath>
+      {[...CREAM_EYES, ...TABBY_EYES].map((eye) => (
+        <clipPath key={eye.id} id={eye.id}>
+          <path d={eye.d} />
+        </clipPath>
+      ))}
     </defs>
   );
 }
@@ -1113,158 +1395,272 @@ function TvCabinet() {
   );
 }
 
-/**
- * Left: a chubby cream Persian, lineless and plush — firelight haloing her
- * fur, one paw slipped over the bezel, her tail curled round the corner.
- */
-function CreamCat() {
+/** An empty square centred on a tail joint: it sizes the group's fill-box so `origin-center` pivots exactly there. */
+function Pivot({ at, r = 64 }: Readonly<{ at: Sample; r?: number }>) {
+  return <rect x={r1(at.x - r)} y={r1(at.y - r)} width={r * 2} height={r * 2} fill="none" />;
+}
+
+/** One segment of a tail: a soft cast shadow, feathered locks behind, then a rim-lit fill. */
+function TailPart({
+  d,
+  clip,
+  fill,
+  tufts,
+  rim = false,
+  children,
+}: Readonly<{ d: string; clip: string; fill: string; tufts?: string; rim?: boolean; children?: ReactNode }>) {
   return (
-    <g transform="translate(420 470)">
-      {/* Tail, hugging the cabinet's rounded top-left corner */}
-      <g className="animate-tail origin-top-right transform-fill" style={{ "--sway": "2.5deg", animationDelay: "-1.2s" } as CSSProperties}>
-        <ellipse cx={-118} cy={30} rx={30} ry={9} fill="var(--color-ink)" fillOpacity={0.22} />
-        <g clipPath="url(#lr-clip-cream-tail)">
-          <path d={CREAM_TAIL} fill="url(#lr-cat-rim)" />
-          <path d={CREAM_TAIL} transform="translate(2 4)" fill="url(#lr-cream-tail)" />
-          <ellipse cx={-136} cy={30} rx={14} ry={12} fill="url(#lr-soft-linen)" />
-          <ellipse cx={-104} cy={4} rx={26} ry={9} fill="url(#lr-soft-amber)" />
+    <>
+      <path d={d} transform="translate(2.5 3.5)" fill="var(--color-ink)" fillOpacity={0.24} />
+      {tufts && <path d={tufts} fill={fill} />}
+      <g clipPath={`url(#${clip})`}>
+        {rim && <path d={d} fill="url(#lr-cat-rim)" />}
+        <g transform={rim ? "translate(1.5 3)" : undefined}>
+          <path d={d} fill={fill} />
+          {children}
         </g>
-        <path d={CREAM_TAIL_SHEEN} fill="var(--color-linen-deep)" fillOpacity={0.4} />
       </g>
+    </>
+  );
+}
 
-      <g className="animate-breathe origin-bottom transform-fill">
-        {/* Body: rim-lit fluff over a warm, velvety loaf */}
-        <g clipPath="url(#lr-clip-cream-body)">
-          <path d={CREAM_BODY} fill="url(#lr-cat-rim)" />
-          <path d={CREAM_BODY} transform="translate(-2.5 5)" fill="url(#lr-cream-body)" />
-          <ellipse cx={46} cy={-58} rx={70} ry={26} fill="url(#lr-soft-linen)" opacity={0.6} />
-          <ellipse cx={104} cy={-20} rx={36} ry={40} fill="url(#lr-soft-amber)" />
-          <rect x={-120} y={-26} width={250} height={26} fill="url(#lr-cat-contact)" />
-        </g>
-
-        {/* Ears, set low in the fluff */}
-        <g className="animate-ear origin-bottom-right transform-fill" style={{ animationDelay: "-3s" }}>
-          <path d={CREAM_EAR_L} fill="url(#lr-cream-ear)" />
-          <path d={CREAM_EAR_L_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.32} />
-          <path d="M-84 -94C-80 -100 -76 -104 -72 -104C-76 -99 -78 -95 -78 -90Z" fill="var(--color-linen-deep)" fillOpacity={0.6} />
-        </g>
-        <path d={CREAM_EAR_R} fill="url(#lr-cream-ear)" />
-        <path d={CREAM_EAR_R_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.32} />
-        <path d="M-4 -96C-6 -102 -6 -106 -4 -108C-1 -104 0 -100 0 -95Z" fill="var(--color-linen-deep)" fillOpacity={0.6} />
-
-        {/* A pale chest under the chin, then the round flat face with its cheek tufts */}
-        <ellipse cx={-36} cy={-16} rx={44} ry={16} fill="url(#lr-soft-linen)" />
-        <g clipPath="url(#lr-clip-cream-head)">
-          <path d={CREAM_HEAD} fill="url(#lr-cat-rim)" />
-          <path d={CREAM_HEAD} transform="translate(-1.5 4)" fill="url(#lr-cream-head)" />
-          <ellipse cx={-86} cy={-40} rx={18} ry={20} fill="url(#lr-soft-amber)" />
-          <ellipse cx={6} cy={-40} rx={18} ry={20} fill="url(#lr-soft-amber)" />
-          <ellipse cx={-40} cy={-36} rx={30} ry={18} fill="url(#lr-soft-linen)" />
-        </g>
-
-        {/* Sleeping face */}
-        <ellipse cx={-68} cy={-46} rx={11} ry={6} fill="url(#lr-soft-blush)" />
-        <ellipse cx={-12} cy={-46} rx={11} ry={6} fill="url(#lr-soft-blush)" />
-        <path d="M-68 -61Q-58 -53.5 -48 -61Q-58 -57 -68 -61Z M-32 -61Q-22 -53.5 -12 -61Q-22 -57 -32 -61Z" fill="var(--color-ink)" fillOpacity={0.7} />
-        <path d="M-67 -60.5l-3 1.6M-65 -58.8l-2 2.2M-13 -60.5l3 1.6M-15 -58.8l2 2.2" stroke="var(--color-ink)" strokeOpacity={0.45} strokeWidth={0.9} strokeLinecap="round" />
-        <path d="M-44.5 -47Q-40 -44.5 -35.5 -47Q-37 -41.5 -40 -41Q-43 -41.5 -44.5 -47Z" fill="var(--color-hearth-terracotta)" />
-        <ellipse cx={-41.5} cy={-45.6} rx={1.6} ry={0.9} fill="var(--color-orchid-white)" fillOpacity={0.45} />
-        <path d="M-40 -41V-38.5M-45.5 -36.5Q-42.8 -34.2 -40 -37Q-37.2 -34.2 -34.5 -36.5" stroke="var(--color-chalet-cedar)" strokeOpacity={0.55} strokeWidth={1.1} fill="none" strokeLinecap="round" />
-        <path d="M-58 -42l-20 -3M-58 -38l-18 3M-22 -42l20 -3M-22 -38l18 3" stroke="var(--color-orchid-white)" strokeOpacity={0.5} strokeWidth={0.8} strokeLinecap="round" />
-      </g>
-
-      {/* The paw that slipped over the bezel, with a soft shadow beneath */}
-      <ellipse cx={-5} cy={29} rx={15} ry={4} fill="var(--color-ink)" fillOpacity={0.35} />
-      <g clipPath="url(#lr-clip-cream-paw)">
-        <path d={CREAM_PAW} fill="url(#lr-cat-rim)" />
-        <path d={CREAM_PAW} transform="translate(-1 3)" fill="url(#lr-cream-body)" />
-        <ellipse cx={-6} cy={22} rx={14} ry={8} fill="url(#lr-soft-linen)" />
-        <ellipse cx={-8.5} cy={27} rx={1.6} ry={3.2} fill="var(--color-dusk-amber)" fillOpacity={0.45} />
-        <ellipse cx={-1} cy={27.5} rx={1.6} ry={3.2} fill="var(--color-dusk-amber)" fillOpacity={0.45} />
-      </g>
+/** Whiskers on one side, rooted at the muzzle, with an occasional twitch. */
+function Whiskers({ d, side, delay }: Readonly<{ d: string; side: "left" | "right"; delay: string }>) {
+  return (
+    <g
+      className={`animate-whisker transform-fill ${side === "left" ? "origin-right" : "origin-left"}`}
+      style={{ "--twitch": side === "left" ? "-4deg" : "4deg", animationDelay: delay } as CSSProperties}
+    >
+      <path d={d} stroke="var(--color-orchid-white)" strokeOpacity={0.65} strokeWidth={0.8} fill="none" strokeLinecap="round" />
     </g>
   );
 }
 
 /**
- * Right: a round white tabby loaf — orchid-white and linen, with soft
- * twilight-indigo and lavender markings, tail curled neatly by her paws.
+ * Left: a plush cream Persian (~5.5 kg) — long honey-and-linen fur in
+ * layered locks, a heavy chest ruff, grumpy half-lidded amber eyes, one
+ * fluffy foreleg over the bezel and a plume tail round the corner.
+ */
+function CreamCat() {
+  return (
+    <g transform="translate(404 470)">
+      {/* Plume tail draped round the cabinet's top-left corner; only the tip sways */}
+      <TailPart d={CREAM_TAIL_BASE} clip="lr-clip-cream-tail-base" fill="url(#lr-cream-fur)" tufts={CREAM_TAIL_BASE_TUFTS} rim />
+      <g className="animate-tail origin-center transform-fill" style={{ "--sway": "4deg", animationDuration: "7.4s", animationDelay: "-1.2s" } as CSSProperties}>
+        <Pivot at={CREAM_TAIL[TAIL_JOINT]} />
+        <TailPart d={CREAM_TAIL_TIP} clip="lr-clip-cream-tail-tip" fill="url(#lr-cream-body)" tufts={CREAM_TAIL_TIP_TUFTS} />
+      </g>
+
+      {/* The fluffy foreleg slipped over the bezel from under the ruff, a soft shadow beneath */}
+      <ellipse cx={-9} cy={31} rx={17} ry={4} fill="var(--color-ink)" fillOpacity={0.35} />
+      <path d={CREAM_LEG_TUFTS} fill="url(#lr-cream-fur)" />
+      <g clipPath="url(#lr-clip-cream-leg)">
+        <path d={CREAM_LEG} fill="url(#lr-cream-body)" />
+        <ellipse cx={-10} cy={22} rx={15} ry={9} fill="url(#lr-soft-linen)" />
+        <ellipse cx={-14} cy={27} rx={1.6} ry={3.4} fill="var(--color-dusk-amber)" fillOpacity={0.5} />
+        <ellipse cx={-6} cy={27.5} rx={1.6} ry={3.4} fill="var(--color-dusk-amber)" fillOpacity={0.5} />
+        <ellipse cx={2} cy={27} rx={1.6} ry={3.2} fill="var(--color-dusk-amber)" fillOpacity={0.45} />
+      </g>
+
+      <g className="animate-breathe origin-bottom transform-fill" style={{ animationDuration: "4.6s" }}>
+        {/* Body: long locks feathering a rim-lit, velvety loaf */}
+        <path d={CREAM_BACK_TUFTS} transform="translate(0 -1)" fill="var(--color-orchid-white)" fillOpacity={0.3} />
+        <path d={CREAM_BACK_TUFTS} fill="url(#lr-cream-body)" />
+        <g clipPath="url(#lr-clip-cream-body)">
+          <path d={CREAM_BODY} fill="url(#lr-cat-rim)" />
+          <path d={CREAM_BODY} transform="translate(-2.5 5)" fill="url(#lr-cream-body)" />
+          <path d={CREAM_BODY_LIGHT} fill="var(--color-linen-deep)" fillOpacity={0.22} />
+          <path d={CREAM_BODY_SHADE} fill="var(--color-dusk-amber)" fillOpacity={0.35} />
+          <ellipse cx={46} cy={-56} rx={64} ry={22} fill="url(#lr-soft-linen)" opacity={0.55} />
+          <ellipse cx={90} cy={-20} rx={34} ry={38} fill="url(#lr-soft-amber)" />
+          <ellipse cx={-64} cy={-16} rx={34} ry={24} fill="url(#lr-soft-lavender)" opacity={0.3} />
+          <rect x={-100} y={-26} width={210} height={26} fill="url(#lr-cat-contact)" />
+        </g>
+
+        {/* The ruff's back tier, spilling round the chest */}
+        <ellipse cx={-36} cy={-22} rx={46} ry={20} fill="url(#lr-cream-ruff)" />
+        <path d={CREAM_RUFF_BACK} fill="url(#lr-cream-ruff)" />
+
+        {/* Ears, set low in the fluff, long furnishings catching the fire */}
+        <g className="animate-ear origin-bottom-right transform-fill" style={{ animationDelay: "-3s" }}>
+          <path d={CREAM_EAR_L} fill="url(#lr-cream-ear)" />
+          <path d={CREAM_EAR_L_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.32} />
+          <path d={CREAM_EAR_L_TUFTS} fill="var(--color-linen-deep)" fillOpacity={0.85} />
+        </g>
+        <g className="animate-ear origin-bottom-left transform-fill" style={{ animationDelay: "-7.4s", animationDuration: "11s" }}>
+          <path d={CREAM_EAR_R} fill="url(#lr-cream-ear)" />
+          <path d={CREAM_EAR_R_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.32} />
+          <path d={CREAM_EAR_R_TUFTS} fill="var(--color-linen-deep)" fillOpacity={0.85} />
+        </g>
+
+        {/* Head: a round, flat face in a halo of long cheek locks */}
+        <path d={CREAM_CHEEK_TUFTS} fill="url(#lr-cream-head)" />
+        <path d={CREAM_CROWN_TUFTS} transform="translate(0 -1)" fill="var(--color-orchid-white)" fillOpacity={0.35} />
+        <path d={CREAM_CROWN_TUFTS} fill="var(--color-ember-gold)" />
+        <g clipPath="url(#lr-clip-cream-head)">
+          <path d={CREAM_HEAD} fill="url(#lr-cat-rim)" />
+          <path d={CREAM_HEAD} transform="translate(-1.5 4)" fill="url(#lr-cream-head)" />
+          <path d={CREAM_FACE_STRANDS} fill="var(--color-dusk-amber)" fillOpacity={0.3} />
+          <ellipse cx={-84} cy={-40} rx={18} ry={20} fill="url(#lr-soft-amber)" />
+          <ellipse cx={8} cy={-40} rx={18} ry={20} fill="url(#lr-soft-amber)" />
+          <ellipse cx={-38} cy={-36} rx={30} ry={18} fill="url(#lr-soft-linen)" />
+        </g>
+        <path d={CREAM_RUFF_FRONT} fill="url(#lr-cream-ruff)" />
+
+        {/* Face: heavy lids sagging toward the nose, grumpily half awake */}
+        <ellipse cx={-66} cy={-46} rx={10} ry={6} fill="url(#lr-soft-blush)" />
+        <ellipse cx={-10} cy={-46} rx={10} ry={6} fill="url(#lr-soft-blush)" />
+        {CREAM_EYES.map((eye) => (
+          <g key={eye.id}>
+            <path d={eye.socket} fill="var(--color-chalet-cedar)" fillOpacity={0.16} />
+            <g clipPath={`url(#${eye.id})`}>
+              <path d={eye.d} fill="var(--color-dusk-amber)" />
+              <circle cx={eye.cx} cy={eye.cy + 1} r={8.4} fill="url(#lr-cream-iris)" />
+              <ellipse cx={eye.cx} cy={eye.cy + 1.2} rx={2.1} ry={4.8} fill="var(--color-twilight-indigo)" />
+              <circle cx={eye.cx + 2.4} cy={eye.cy + 2.4} r={1.1} fill="var(--color-orchid-white)" fillOpacity={0.85} />
+              <path d={eye.lid} transform="translate(0 1.8)" fill="var(--color-ink)" fillOpacity={0.35} />
+              <path d={eye.lid} fill="var(--color-dusk-amber)" />
+              <path d={eye.lid} transform="translate(0 -1.1)" fill="var(--color-ember-gold)" />
+            </g>
+          </g>
+        ))}
+        <ellipse cx={-38} cy={-56} rx={4} ry={5} fill="url(#lr-soft-amber)" />
+        <ellipse cx={-44.5} cy={-41} rx={8} ry={6} fill="url(#lr-soft-cream)" />
+        <ellipse cx={-31.5} cy={-41} rx={8} ry={6} fill="url(#lr-soft-cream)" />
+        <path d={CREAM_NOSE} fill="var(--color-hearth-terracotta)" />
+        <ellipse cx={-39.5} cy={-50.6} rx={1.6} ry={0.9} fill="var(--color-orchid-white)" fillOpacity={0.45} />
+        <path d={CREAM_MOUTH} stroke="var(--color-chalet-cedar)" strokeOpacity={0.5} strokeWidth={1.1} fill="none" strokeLinecap="round" />
+        <Whiskers d={CREAM_WHISKERS_L} side="left" delay="-2.2s" />
+        <Whiskers d={CREAM_WHISKERS_R} side="right" delay="-5.6s" />
+      </g>
+
+    </g>
+  );
+}
+
+/**
+ * Right: the heavier white-and-tabby tom (~6.5 kg) — broad snowy chest,
+ * dark cedar-and-indigo saddle and hip patches, a white blaze between
+ * pale green-hazel eyes, golden whisker pads, a ringed tail over the corner.
  */
 function TabbyCat() {
   return (
-    <g transform="translate(592 470)">
-      <g className="animate-breathe origin-bottom transform-fill" style={{ animationDelay: "-1.9s", animationDuration: "4.9s" }}>
-        {/* Plump back: rim light, white fur, a grey saddle and tabby stripes */}
+    <g transform="translate(598 470)">
+      <g className="animate-breathe origin-bottom transform-fill" style={{ animationDelay: "-1.9s", animationDuration: "5.1s" }}>
+        {/* Body: dense white fur, short dark locks along the saddle line */}
+        <path d={TABBY_BACK_TUFTS} transform="translate(0 -1)" fill="var(--color-ember-gold)" fillOpacity={0.4} />
+        <path d={TABBY_BACK_TUFTS} fill="url(#lr-tabby-patch)" />
+        <path d={TABBY_SHOULDER_TUFTS} fill="var(--color-orchid-white)" />
         <g clipPath="url(#lr-clip-tabby)">
           <path d={TABBY_BODY} fill="url(#lr-cat-rim)" />
-          <path d={TABBY_BODY} transform="translate(2.5 5)" fill="url(#lr-tabby-body)" />
-          <ellipse cx={46} cy={-74} rx={72} ry={34} fill="url(#lr-soft-lavender)" />
-          <path d={TABBY_BACK_STRIPES} fill="var(--color-twilight-indigo)" fillOpacity={0.8} />
-          <path d={TABBY_FLANK_STRIPES} fill="var(--color-bruised-lavender)" fillOpacity={0.55} />
-          <ellipse cx={-50} cy={-40} rx={30} ry={30} fill="url(#lr-soft-white)" opacity={0.7} />
-          <ellipse cx={100} cy={-30} rx={30} ry={36} fill="url(#lr-soft-lavender)" opacity={0.6} />
-          <rect x={-90} y={-24} width={200} height={24} fill="url(#lr-cat-contact)" />
+          <g transform="translate(2.5 5)">
+            <path d={TABBY_BODY} fill="url(#lr-tabby-body)" />
+            <path d={TABBY_BODY_STRANDS} fill="var(--color-linen-deep)" fillOpacity={0.7} />
+            <ellipse cx={-72} cy={-30} rx={40} ry={34} fill="url(#lr-soft-lavender)" opacity={0.3} />
+            {/* Dark tabby saddle and hip, feathering into the white */}
+            <path d={TABBY_PATCH_EDGE} fill="url(#lr-tabby-patch)" />
+            <path d={TABBY_SADDLE} fill="url(#lr-tabby-patch)" />
+            <path d={TABBY_HIP} fill="url(#lr-tabby-patch)" />
+            <g clipPath="url(#lr-clip-tabby-patches)">
+              <ellipse cx={30} cy={-114} rx={66} ry={22} fill="url(#lr-soft-lavender)" />
+              <path d={TABBY_PATCH_STRIPES} fill="var(--color-twilight-indigo)" fillOpacity={0.75} />
+              <path d={TABBY_PATCH_STRANDS} fill="var(--color-bruised-lavender)" fillOpacity={0.35} />
+            </g>
+          </g>
+          <ellipse cx={104} cy={-28} rx={30} ry={36} fill="url(#lr-soft-lavender)" opacity={0.45} />
+          <rect x={-110} y={-24} width={224} height={24} fill="url(#lr-cat-contact)" />
         </g>
 
-        {/* Ears */}
+        {/* A deep white chest under the jowls */}
+        <path d={TABBY_CHEST_TUFTS} fill="var(--color-orchid-white)" />
+        <path d={TABBY_CHEST} fill="url(#lr-tabby-body)" />
+        <path d={TABBY_CHEST_STRANDS} fill="var(--color-linen-deep)" fillOpacity={0.75} />
+
+        {/* Dark ears with pale furnishings */}
         <path d={TABBY_EAR_L} fill="url(#lr-tabby-ear)" />
-        <path d={TABBY_EAR_L_IN} fill="var(--color-petal-lilac)" fillOpacity={0.6} />
+        <path d={TABBY_EAR_L_IN} fill="var(--color-petal-lilac)" fillOpacity={0.4} />
+        <path d={TABBY_EAR_L_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.2} />
+        <path d={TABBY_EAR_L_TUFTS} fill="var(--color-orchid-white)" fillOpacity={0.75} />
         <g className="animate-ear origin-bottom-left transform-fill" style={{ animationDelay: "-6.2s", animationDuration: "10s" }}>
           <path d={TABBY_EAR_R} fill="url(#lr-tabby-ear)" />
-          <path d={TABBY_EAR_R_IN} fill="var(--color-petal-lilac)" fillOpacity={0.6} />
+          <path d={TABBY_EAR_R_IN} fill="var(--color-petal-lilac)" fillOpacity={0.4} />
+          <path d={TABBY_EAR_R_IN} fill="var(--color-hearth-terracotta)" fillOpacity={0.2} />
+          <path d={TABBY_EAR_R_TUFTS} fill="var(--color-orchid-white)" fillOpacity={0.75} />
         </g>
 
-        {/* Head: grey cap, forehead M, cheek stripes, a white muzzle */}
+        {/* Head: broad jowls, dark crown split by a clean white blaze */}
+        <path d={TABBY_JOWL_TUFTS} fill="var(--color-orchid-white)" />
+        <path d={TABBY_CROWN_TUFTS} transform="translate(0 -1.2)" fill="var(--color-ember-gold)" fillOpacity={0.55} />
+        <path d={TABBY_CROWN_TUFTS} fill="url(#lr-tabby-patch)" />
         <g clipPath="url(#lr-clip-tabby-head)">
           <path d={TABBY_HEAD} fill="url(#lr-cat-rim)" />
-          <path d={TABBY_HEAD} transform="translate(1.5 4)" fill="url(#lr-tabby-head)" />
-          <ellipse cx={-24} cy={-100} rx={54} ry={30} fill="url(#lr-soft-lavender)" />
-          <path d={TABBY_BROW} fill="var(--color-twilight-indigo)" fillOpacity={0.82} />
-          <path d={TABBY_CHEEK_STRIPES} fill="var(--color-twilight-indigo)" fillOpacity={0.5} />
-          <ellipse cx={-24} cy={-34} rx={26} ry={17} fill="url(#lr-soft-white)" />
+          <g transform="translate(1.5 4)">
+            <path d={TABBY_HEAD} fill="url(#lr-tabby-head)" />
+            <path d={TABBY_CAP_EDGE} fill="var(--color-twilight-indigo)" />
+            <path d={TABBY_CAP} fill="url(#lr-tabby-patch)" />
+          </g>
+          <ellipse cx={-30} cy={-108} rx={50} ry={18} fill="url(#lr-soft-lavender)" opacity={0.8} />
+          <path d={TABBY_CAP_STRIPES} fill="var(--color-twilight-indigo)" fillOpacity={0.7} />
+          <path d={TABBY_BLAZE} fill="var(--color-orchid-white)" />
+          <ellipse cx={-62} cy={-42} rx={20} ry={16} fill="url(#lr-soft-white)" />
+          <ellipse cx={2} cy={-42} rx={20} ry={16} fill="url(#lr-soft-white)" />
+          <ellipse cx={-30} cy={-40} rx={22} ry={14} fill="url(#lr-soft-white)" />
+          <ellipse cx={-30} cy={-26} rx={16} ry={9} fill="url(#lr-soft-white)" />
+          <path d={TABBY_MASCARA} fill="var(--color-twilight-indigo)" fillOpacity={0.4} />
         </g>
 
-        {/* Sleeping face; one eye opens a sliver now and then */}
-        <ellipse cx={-50} cy={-44} rx={9} ry={5} fill="url(#lr-soft-blush)" />
-        <ellipse cx={2} cy={-44} rx={9} ry={5} fill="url(#lr-soft-blush)" />
-        <path d="M-46 -58Q-37 -51.5 -28 -58Q-37 -54.5 -46 -58Z" fill="var(--color-ink)" fillOpacity={0.7} />
-        <path d="M-20 -58Q-11 -51.5 -2 -58Q-11 -54.5 -20 -58Z" className="animate-peek-shut" fill="var(--color-ink)" fillOpacity={0.7} />
-        <g className="animate-peek" opacity={0}>
-          <ellipse cx={-11} cy={-56.5} rx={7.5} ry={5.5} fill="var(--color-orchid-white)" />
-          <ellipse cx={-11} cy={-56} rx={4.4} ry={4} fill="var(--color-twilight-indigo)" />
-          <circle cx={-9.6} cy={-57.6} r={1.3} fill="var(--color-orchid-white)" />
-          <path d="M-19 -59Q-11 -63 -3 -59Q-11 -61 -19 -59Z" fill="var(--color-ink)" fillOpacity={0.6} />
-        </g>
-        <path d="M-28 -46Q-24 -43.5 -20 -46Q-21.5 -41 -24 -40.5Q-26.5 -41 -28 -46Z" fill="var(--color-petal-lilac)" />
-        <path d="M-28 -46Q-24 -43.5 -20 -46Q-21.5 -41 -24 -40.5Q-26.5 -41 -28 -46Z" fill="var(--color-hearth-terracotta)" fillOpacity={0.35} />
-        <path d="M-24 -40.5V-38M-29.5 -36Q-26.8 -33.8 -24 -36.5Q-21.2 -33.8 -18.5 -36" stroke="var(--color-twilight-indigo)" strokeOpacity={0.45} strokeWidth={1.1} fill="none" strokeLinecap="round" />
-        {TABBY_FRECKLES.map(([cx, cy]) => (
-          <circle key={`${cx}${cy}`} cx={cx} cy={cy} r={0.9} fill="var(--color-twilight-indigo)" fillOpacity={0.45} />
+        {/* A level, serious stare under low brows */}
+        <path d={TABBY_BROW_GLINT} fill="var(--color-ember-gold)" fillOpacity={0.3} />
+        <path d={TABBY_BROWS} fill="var(--color-twilight-indigo)" fillOpacity={0.75} />
+        {TABBY_EYES.map((eye) => (
+          <g key={eye.id}>
+            <path d={eye.socket} fill="var(--color-twilight-indigo)" fillOpacity={0.35} />
+            <g clipPath={`url(#${eye.id})`}>
+              <path d={eye.d} fill="var(--color-alpine-sage)" />
+              <circle cx={eye.cx} cy={eye.cy + 0.6} r={8.6} fill="url(#lr-tabby-iris)" />
+              <circle cx={eye.cx} cy={eye.cy + 0.6} r={3.4} fill="url(#lr-tabby-hazel)" />
+              <ellipse cx={eye.cx} cy={eye.cy + 0.6} rx={1.25} ry={5.6} fill="var(--color-twilight-indigo)" />
+              <rect x={eye.cx - 12} y={eye.cy - 6} width={24} height={6} fill="url(#lr-lid-shadow)" />
+              <path d={eye.lid} fill="var(--color-twilight-indigo)" fillOpacity={0.85} />
+              <circle cx={eye.cx + 2.3} cy={eye.cy - 0.8} r={1.25} fill="var(--color-orchid-white)" />
+              <circle cx={eye.cx - 2.4} cy={eye.cy + 2.8} r={0.6} fill="var(--color-orchid-white)" fillOpacity={0.6} />
+            </g>
+          </g>
         ))}
-        <path d="M-42 -38l-16 -3M-42 -34l-15 2M-6 -38l16 -3M-6 -34l15 2" stroke="var(--color-bruised-lavender)" strokeOpacity={0.45} strokeWidth={0.8} strokeLinecap="round" />
+
+        {/* Golden whisker pads, freckled, framing a small terracotta nose */}
+        <ellipse cx={-37.5} cy={-44.5} rx={9.5} ry={7} fill="url(#lr-tabby-pad)" />
+        <ellipse cx={-22.5} cy={-44.5} rx={9.5} ry={7} fill="url(#lr-tabby-pad)" />
+        {TABBY_FRECKLES.map(([cx, cy]) => (
+          <circle key={`${cx}${cy}`} cx={cx} cy={cy} r={0.8} fill="var(--color-chalet-cedar)" fillOpacity={0.55} />
+        ))}
+        <path d={TABBY_NOSE} fill="var(--color-hearth-terracotta)" />
+        <ellipse cx={-31.5} cy={-53.4} rx={1.6} ry={0.9} fill="var(--color-orchid-white)" fillOpacity={0.45} />
+        <path d={TABBY_MOUTH} stroke="var(--color-chalet-cedar)" strokeOpacity={0.55} strokeWidth={1.1} fill="none" strokeLinecap="round" />
+        <Whiskers d={TABBY_WHISKERS_L} side="left" delay="-4.1s" />
+        <Whiskers d={TABBY_WHISKERS_R} side="right" delay="-0.8s" />
       </g>
 
-      {/* Tucked paws */}
-      {[-54, -28].map((cx) => (
+      {/* Big tucked front paws */}
+      {[-66, -28].map((cx) => (
         <g key={cx}>
-          <ellipse cx={cx} cy={-1} rx={14} ry={4} fill="var(--color-ink)" fillOpacity={0.2} />
-          <ellipse cx={cx} cy={-5} rx={14} ry={8} fill="var(--color-orchid-white)" />
-          <ellipse cx={cx} cy={-2} rx={12} ry={4} fill="var(--color-linen-deep)" fillOpacity={0.8} />
-          <ellipse cx={cx - 4} cy={-2.5} rx={1.3} ry={2.4} fill="var(--color-bruised-lavender)" fillOpacity={0.35} />
-          <ellipse cx={cx + 4} cy={-2.5} rx={1.3} ry={2.4} fill="var(--color-bruised-lavender)" fillOpacity={0.35} />
+          <ellipse cx={cx} cy={-1} rx={17} ry={4} fill="var(--color-ink)" fillOpacity={0.22} />
+          <ellipse cx={cx} cy={-6} rx={17} ry={9} fill="var(--color-orchid-white)" />
+          <ellipse cx={cx} cy={-2.5} rx={14} ry={4.5} fill="var(--color-linen-deep)" fillOpacity={0.85} />
         </g>
       ))}
 
-      {/* Ringed tail curled round the front, tip resting beside the paws */}
-      <g className="animate-tail origin-right transform-fill" style={{ "--sway": "-2deg", animationDuration: "5.2s" } as CSSProperties}>
-        <ellipse cx={50} cy={8} rx={56} ry={4} fill="var(--color-ink)" fillOpacity={0.2} />
-        <g clipPath="url(#lr-clip-tabby-tail)">
-          <path d={TABBY_TAIL} fill="url(#lr-cat-rim)" />
-          <path d={TABBY_TAIL} transform="translate(0 3)" fill="url(#lr-tabby-body)" />
-          <path d={TABBY_TAIL_RINGS} fill="var(--color-twilight-indigo)" fillOpacity={0.78} />
-          <rect x={-10} y={-14} width={16} height={26} fill="var(--color-twilight-indigo)" fillOpacity={0.85} />
-          <rect x={-10} y={2} width={120} height={10} fill="url(#lr-cat-contact)" />
-        </g>
+      {/* Thick ringed tail over the top-right corner, hooking in clear of the controls; the tip sways */}
+      <TailPart d={TABBY_TAIL_BASE} clip="lr-clip-tabby-tail-base" fill="url(#lr-tabby-patch)">
+        <path d={TABBY_RINGS_BASE_SOFT} fill="var(--color-twilight-indigo)" fillOpacity={0.35} />
+        <path d={TABBY_RINGS_BASE_D} fill="var(--color-twilight-indigo)" fillOpacity={0.85} />
+      </TailPart>
+      <g className="animate-tail origin-center transform-fill" style={{ "--sway": "-3.5deg", animationDuration: "6.1s" } as CSSProperties}>
+        <Pivot at={TABBY_TAIL[TAIL_JOINT]} />
+        <TailPart d={TABBY_TAIL_TIP} clip="lr-clip-tabby-tail-tip" fill="url(#lr-tabby-patch)">
+          <path d={TABBY_RINGS_TIP_SOFT} fill="var(--color-twilight-indigo)" fillOpacity={0.35} />
+          <path d={TABBY_RINGS_TIP_D} fill="var(--color-twilight-indigo)" fillOpacity={0.85} />
+        </TailPart>
       </g>
     </g>
   );
