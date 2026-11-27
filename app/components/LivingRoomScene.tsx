@@ -2073,6 +2073,8 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
   const [flips, setFlips] = useState(0);
   /** Only the dial mutes the set; every tap otherwise turns the sound up. */
   const [muted, setMuted] = useState(false);
+  /** Natural width / height of the tape in the deck; 4:3 until its metadata arrives. */
+  const [ratio, setRatio] = useState(4 / 3);
 
   // Called inside the tap itself, so the browser counts the sound as user-started.
   const soundOn = () => {
@@ -2165,7 +2167,12 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
             preload="metadata"
             playsInline
             aria-label={`Channel ${pad2(channel + 1)}: ${show.title}`}
-            className={`absolute inset-0 size-full bg-twilight-indigo/95 object-contain object-center transition-opacity duration-300 ${isMissing ? "opacity-0" : "opacity-100"}`}
+            className={`absolute inset-y-0 bg-twilight-indigo/95 object-cover transition-opacity duration-300 ${ratio >= 1 ? "h-full w-auto min-w-full max-w-none -translate-x-1/2 left-1/2 object-center" : "left-0 size-full object-[50%_20%]"} ${isMissing ? "opacity-0" : "opacity-100"}`}
+            muted={muted}
+            onLoadedMetadata={(e) => {
+              const { videoWidth: w, videoHeight: h } = e.currentTarget;
+              if (w > 0 && h > 0) setRatio(w / h);
+            }}
             onLoadedData={() => {
               setLoaded(channel);
               if (wantsPlay.current) startPlayback();
