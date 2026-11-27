@@ -3,19 +3,20 @@
 /* ═══════════════════════════════════════════════════════════════════
    TV_CHANNELS — "Channel 08: Eight Days to the 8th".
 
-   public/video_greet/ is empty for now. Drop the eight videos in and
-   make each `src` below match its filename exactly. Any channel whose
-   file can't be loaded shows a little Swiss test card instead.
+   Files live in public/video_greet/ as video1.mp4 … video8.mp4.
+   Channels 01–04 are recorded; 05–08 are plug-and-play — drop the file
+   in with the matching name. Until then that channel shows the Swiss
+   test card instead of a broken-media icon.
    ═══════════════════════════════════════════════════════════════════ */
 const TV_CHANNELS = [
-  { src: "/video_greet/day1.mp4", title: "Day One" },
-  { src: "/video_greet/day2.mp4", title: "Day Two" },
-  { src: "/video_greet/day3.mp4", title: "Day Three" },
-  { src: "/video_greet/day4.mp4", title: "Day Four" },
-  { src: "/video_greet/day5.mp4", title: "Day Five" },
-  { src: "/video_greet/day6.mp4", title: "Day Six" },
-  { src: "/video_greet/day7.mp4", title: "Day Seven" },
-  { src: "/video_greet/day8.mp4", title: "Day Eight" },
+  { src: "/video_greet/video1.mp4", title: "Day One" },
+  { src: "/video_greet/video2.mp4", title: "Day Two" },
+  { src: "/video_greet/video3.mp4", title: "Day Three" },
+  { src: "/video_greet/video4.mp4", title: "Day Four" },
+  { src: "/video_greet/video5.mp4", title: "Day Five" },
+  { src: "/video_greet/video6.mp4", title: "Day Six" },
+  { src: "/video_greet/video7.mp4", title: "Day Seven" },
+  { src: "/video_greet/video8.mp4", title: "Day Eight" },
 ] as const;
 
 import {
@@ -2140,7 +2141,7 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
             preload="metadata"
             playsInline
             aria-label={`Channel ${pad2(channel + 1)}: ${show.title}`}
-            className={`absolute inset-0 size-full scale-[1.03] object-contain transition-opacity duration-300 ${isMissing ? "opacity-0" : "opacity-100"}`}
+            className={`absolute inset-0 size-full scale-[1.03] object-cover object-center transition-opacity duration-300 ${isMissing ? "opacity-0" : "opacity-100"}`}
             onLoadedData={() => {
               setLoaded(channel);
               if (wantsPlay.current) startPlayback();
@@ -2207,7 +2208,7 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
             className="pointer-events-none absolute top-[10%] left-[11%] max-w-[64%]"
             initial={{ opacity: 1 }}
             animate={{ opacity: playing ? 0 : 1 }}
-            transition={{ delay: playing ? 1.6 : 0, duration: 0.5 }}
+            transition={{ delay: playing ? 2.5 : 0, duration: 0.5 }}
           >
             <p className="font-mono text-[1.5cqw] leading-none tracking-[0.14em] text-ember-gold tabular-nums" style={{ textShadow: LED_GLOW }}>
               CH {pad2(channel + 1)}

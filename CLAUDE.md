@@ -39,7 +39,7 @@ Use as `bg-linen`, `text-velvet-plum`, `border-bruised-lavender/40`, `bg-chalet-
 ## Public Assets & Paths (Inside `public/`)
 - **Background Vinyl Audio**: `public/background_music/` — Mac Miller *Congratulations* instrumental — exact file: `public/background_music/congratulations.mp3` (served at `/background_music/congratulations.mp3`).
 - **Carousel Photos**: `public/chaca_photos/chaca1.jpg` through `public/chaca_photos/chaca12.jpg` (12 photos; include graceful botanical fallbacks if any file is missing).
-- **Retro TV Videos**: `public/video_greet/` — 8 birthday greeting videos — **folder is currently empty**. `LivingRoomScene.tsx` expects `day1.mp4` … `day8.mp4` via its top-level `TV_CHANNELS` constant; once the real files are dropped in, update those `src` values (and list the filenames here) to match exactly. Missing files show a vector test card.
+- **Retro TV Videos**: `public/video_greet/` — 8 birthday greeting videos mapped in `LivingRoomScene.tsx`'s top-level `TV_CHANNELS` to `/video_greet/video1.mp4` … `video8.mp4` (CH 01–08). `video1.mp4`–`video4.mp4` are in place; `video5.mp4`–`video8.mp4` are plug-and-play — drop them in with those exact names. Missing files show a vector test card.
 
 ## Architecture & Components
 - `app/layout.tsx` — Server Component; configures fonts and metadata.
