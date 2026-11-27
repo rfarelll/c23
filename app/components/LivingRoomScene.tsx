@@ -26,7 +26,7 @@ import {
   useScroll,
   useTransform,
 } from "framer-motion";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, Volume2, VolumeX } from "lucide-react";
 import {
   useEffect,
   useEffectEvent,
@@ -680,6 +680,8 @@ const GLASS: Rect = { x: 318, y: 504, w: 266, h: 258 };
 const LED: Rect = { x: 625, y: 507, w: 62, h: 38 };
 const CH_UP: Rect = { x: 620, y: 559, w: 72, h: 50 };
 const CH_DOWN: Rect = { x: 620, y: 617, w: 72, h: 50 };
+/** The round rotary dial at the foot of the panel: the volume knob. */
+const DIAL: Rect = { x: 638, y: 734, w: 36, h: 36 };
 /** Nameplate lip beneath the bezel, centred under the glass. */
 const PLAQUE: Rect = { x: 312, y: 786, w: 278, h: 28 };
 
@@ -1388,7 +1390,7 @@ function TvCabinet() {
       ))}
       <circle cx={656} cy={752} r={15} fill="var(--color-dusk-amber)" />
       <circle cx={656} cy={752} r={10.5} fill="var(--color-ember-gold)" />
-      <path d="M656 743V749" stroke="var(--color-ink)" strokeOpacity={0.6} strokeWidth={2.5} strokeLinecap="round" />
+      
 
       {/* Where the cats rest, the cabinet top darkens a touch */}
       <ellipse cx={500} cy={466} rx={206} ry={7} fill="var(--color-ink)" fillOpacity={0.35} />
@@ -2069,12 +2071,23 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [flips, setFlips] = useState(0);
+  /** Only the dial mutes the set; every tap otherwise turns the sound up. */
+  const [muted, setMuted] = useState(false);
+
+  // Called inside the tap itself, so the browser counts the sound as user-started.
+  const soundOn = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = muted;
+    video.volume = 1;
+  };
 
   const show = TV_CHANNELS[channel];
   const isMissing = missing.has(channel);
   const hasFrame = loaded === channel;
 
   const flip = (dir: 1 | -1) => {
+    soundOn();
     setChannel((c) => (c + dir + CHANNEL_COUNT) % CHANNEL_COUNT);
     setFlips((n) => n + 1);
     setLoaded(null);
@@ -2096,10 +2109,21 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
+      soundOn();
       wantsPlay.current = true;
       startPlayback();
     } else {
       video.pause();
+    }
+  };
+
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    const video = videoRef.current;
+    if (video) {
+      video.muted = next;
+      video.volume = 1;
     }
   };
 
@@ -2141,7 +2165,7 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
             preload="metadata"
             playsInline
             aria-label={`Channel ${pad2(channel + 1)}: ${show.title}`}
-            className={`absolute inset-0 size-full scale-[1.03] object-cover object-center transition-opacity duration-300 ${isMissing ? "opacity-0" : "opacity-100"}`}
+            className={`absolute inset-0 size-full bg-twilight-indigo/95 object-contain object-center transition-opacity duration-300 ${isMissing ? "opacity-0" : "opacity-100"}`}
             onLoadedData={() => {
               setLoaded(channel);
               if (wantsPlay.current) startPlayback();
@@ -2274,6 +2298,23 @@ function CrtTv({ armed, visible, keysLive, reduce, onVideoPlay, onVideoPause, on
 
       <ChannelButton dir={1} rect={CH_UP} reduce={reduce} onPress={() => flip(1)} />
       <ChannelButton dir={-1} rect={CH_DOWN} reduce={reduce} onPress={() => flip(-1)} />
+
+      <motion.button
+        type="button"
+        onClick={toggleMute}
+        aria-label={muted ? "Unmute the TV" : "Mute the TV"}
+        aria-pressed={muted}
+        whileTap={reduce ? undefined : { rotate: muted ? -60 : 60, scale: 0.94 }}
+        transition={SPRING_TACTILE}
+        className="absolute grid cursor-pointer place-items-center rounded-full text-ink/75 transition-colors hover:text-velvet-plum focus-visible:outline-[length:0.35cqw] focus-visible:outline-offset-[0.25cqw] focus-visible:outline-dusk-amber"
+        style={place(DIAL)}
+      >
+        {muted ? (
+          <VolumeX className="size-[1.6cqw]" strokeWidth={2.4} aria-hidden />
+        ) : (
+          <Volume2 className="size-[1.6cqw]" strokeWidth={2.4} aria-hidden />
+        )}
+      </motion.button>
 
       <p className="sr-only" aria-live="polite">
         {`Channel ${channel + 1} of ${CHANNEL_COUNT}: ${show.title}. ${status}`}
